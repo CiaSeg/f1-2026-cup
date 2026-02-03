@@ -21,7 +21,8 @@ class F1CupApp {
             selectedPodium: ['', '', ''],
             isAdmin: localStorage.getItem('f1_admin') === 'true',
             dataLoaded: false,
-            adminResultsFilled: false // Para controlar si los resultados están completos
+            adminResultsFilled: false, // Para controlar si los resultados están completos
+            isAdminPanelReady: false  // Añade esta línea
         };
 
         // Datos estáticos
@@ -1060,128 +1061,139 @@ class F1CupApp {
     }
 
     loadAdminPanel() {
-        const tabContent = document.getElementById('tab-admin');
-        if (!tabContent) return;
-        
-        const lastGP = this.circuitsList[0];
-        
-        tabContent.innerHTML = `
-            <div class="mobile-card">
-                <p class="sub-text">🔧 PANEL ADMINISTRADOR COMPARTIDO</p>
+    const tabContent = document.getElementById('tab-admin');
+    if (!tabContent) return;
+    
+    const lastGP = this.circuitsList[0];
+    
+    tabContent.innerHTML = `
+        <div class="mobile-card">
+            <p class="sub-text">🔧 PANEL ADMINISTRADOR COMPARTIDO</p>
+            
+            <div class="admin-warning">
+                <i class="fas fa-exclamation-triangle"></i>
+                <h4>MODO ADMINISTRADOR</h4>
+                <p>Todos los cambios que hagas aquí serán visibles para ambos jugadores en tiempo real.</p>
+            </div>
+            
+            <div class="sync-status">
+                <i class="fas fa-sync-alt"></i>
+                <span>Esperando acción del administrador</span>
+            </div>
+            
+            <div class="admin-section mt-20">
+                <h4><i class="fas fa-flag-checkered"></i> RESULTADOS OFICIALES</h4>
+                <p class="sub-text" style="text-align: left; margin-bottom: 15px;">
+                    Selecciona carrera y completa TODOS los puestos:
+                </p>
                 
-                <div class="admin-warning">
-                    <i class="fas fa-exclamation-triangle"></i>
-                    <h4>MODO ADMINISTRADOR</h4>
-                    <p>Todos los cambios que hagas aquí serán visibles para ambos jugadores en tiempo real.</p>
+                <div class="form-group">
+                    <label class="form-label">CARRERA</label>
+                    <select id="admin-gp-select" class="form-select" onchange="window.f1App.onAdminGPChange()">
+                        ${this.circuitsList.map((circuit, index) => 
+                            `<option value="${index}">${circuit}</option>`
+                        ).join('')}
+                    </select>
                 </div>
                 
-                <div class="sync-status">
-                    <i class="fas fa-sync-alt"></i>
-                    <span>Sincronizado con Firebase</span>
+                <div id="admin-loading" style="display: none; text-align: center; padding: 20px;">
+                    <i class="fas fa-spinner fa-spin fa-2x"></i>
+                    <p>Cargando formulario...</p>
                 </div>
                 
-                <div class="admin-section mt-20">
-                    <h4><i class="fas fa-flag-checkered"></i> RESULTADOS OFICIALES</h4>
-                    <p class="sub-text" style="text-align: left; margin-bottom: 15px;">
-                        Selecciona carrera para publicar resultados:
-                    </p>
-                    
-                    <div class="form-group">
-                        <label class="form-label">CARRERA</label>
-                        <select id="admin-gp-select" class="form-select">
-                            ${this.circuitsList.map((circuit, index) => 
-                                `<option value="${index}">${circuit}</option>`
-                            ).join('')}
-                        </select>
-                    </div>
-                    
-                    <div id="results-container" class="results-grid mt-20">
-                        ${Array.from({length: 22}, (_, i) => `
-                            <div class="result-row">
-                                <div class="position-label">P${i+1}</div>
-                                <select class="result-select" data-position="${i+1}">
-                                    <option value="">Selecciona piloto</option>
-                                    ${this.driversList.map(driver => 
-                                        `<option value="${driver}">${driver}</option>`
-                                    ).join('')}
-                                </select>
-                            </div>
-                        `).join('')}
-                    </div>
-                    
-                    <button id="btn-publish-results" class="btn btn-primary w-100 mt-20">
-                        <i class="fas fa-paper-plane"></i> PUBLICAR RESULTADOS
-                    </button>
+                <div id="results-container" class="results-grid mt-20" style="display: none;">
+                    ${Array.from({length: 22}, (_, i) => `
+                        <div class="result-row">
+                            <div class="position-label">P${i+1}</div>
+                            <select class="result-select" data-position="${i+1}">
+                                <option value="">Selecciona piloto</option>
+                                ${this.driversList.map(driver => 
+                                    `<option value="${driver}">${driver}</option>`
+                                ).join('')}
+                            </select>
+                        </div>
+                    `).join('')}
                 </div>
                 
-                <div class="admin-section mt-30">
-                    <h4><i class="fas fa-calculator"></i> ÚLTIMO NÚMERO</h4>
-                    <div class="form-group">
-                        <label class="form-label">CARRERA</label>
-                        <select id="last-number-gp" class="form-select">
-                            ${this.circuitsList.map((circuit, index) => 
-                                `<option value="${index}">${circuit}</option>`
-                            ).join('')}
-                        </select>
-                    </div>
-                    <div class="form-group">
-                        <label class="form-label">ÚLTIMO NÚMERO (1-22)</label>
-                        <input type="number" id="last-number-input" class="form-input" 
-                               min="1" max="22" placeholder="Ej: 12">
-                    </div>
-                    <button id="btn-save-last-number" class="btn btn-primary w-100 mt-20">
-                        <i class="fas fa-save"></i> GUARDAR ÚLTIMO NÚMERO
-                    </button>
-                </div>
+                <button id="btn-publish-results" class="btn btn-primary w-100 mt-20" style="display: none;">
+                    <i class="fas fa-paper-plane"></i> PUBLICAR RESULTADOS
+                </button>
                 
-                <div class="admin-section mt-30">
-                    <h4><i class="fas fa-chart-line"></i> ESTADÍSTICAS</h4>
-                    <div class="stats-grid">
-                        <div class="stat-card">
-                            <div class="stat-value">${this.firebaseData.bets.length}</div>
-                            <div class="stat-label">Apuestas totales</div>
-                        </div>
-                        <div class="stat-card">
-                            <div class="stat-value">${this.firebaseData.results.length}</div>
-                            <div class="stat-label">Carreras con resultados</div>
-                        </div>
-                        <div class="stat-card">
-                            <div class="stat-value">2</div>
-                            <div class="stat-label">Jugadores activos</div>
-                        </div>
-                        <div class="stat-card">
-                            <div class="stat-value">${this.firebaseData.points.Varo + this.firebaseData.points.Cía}</div>
-                            <div class="stat-label">Puntos totales</div>
-                        </div>
+                <div id="admin-results-info" class="mt-20" style="display: none;">
+                    <div class="status-message success">
+                        <i class="fas fa-info-circle"></i>
+                        <span>Formulario cargado. Completa todos los puestos y haz clic en PUBLICAR RESULTADOS.</span>
                     </div>
-                    
-                    <button id="btn-refresh-admin" class="btn btn-secondary w-100 mt-20">
-                        <i class="fas fa-redo"></i> ACTUALIZAR DATOS
-                    </button>
                 </div>
             </div>
-        `;
-        
-        // Configurar botones del admin
-        const publishBtn = document.getElementById('btn-publish-results');
-        if (publishBtn) {
-            publishBtn.onclick = () => this.publishFullResults();
-        }
-        
-        const saveLastNumBtn = document.getElementById('btn-save-last-number');
-        if (saveLastNumBtn) {
-            saveLastNumBtn.onclick = () => this.saveLastNumber();
-        }
-        
-        const refreshBtn = document.getElementById('btn-refresh-admin');
-        if (refreshBtn) {
-            refreshBtn.onclick = () => this.refreshData();
-        }
-        
-        // Cargar resultados existentes si los hay
-        this.loadExistingResults();
+            
+            <div class="admin-section mt-30">
+                <h4><i class="fas fa-calculator"></i> ÚLTIMO NÚMERO</h4>
+                <div class="form-group">
+                    <label class="form-label">CARRERA</label>
+                    <select id="last-number-gp" class="form-select">
+                        ${this.circuitsList.map((circuit, index) => 
+                            `<option value="${index}">${circuit}</option>`
+                        ).join('')}
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">ÚLTIMO NÚMERO (1-22)</label>
+                    <input type="number" id="last-number-input" class="form-input" 
+                           min="1" max="22" placeholder="Ej: 12">
+                </div>
+                <button id="btn-save-last-number" class="btn btn-primary w-100 mt-20">
+                    <i class="fas fa-save"></i> GUARDAR ÚLTIMO NÚMERO
+                </button>
+            </div>
+            
+            <div class="admin-section mt-30">
+                <h4><i class="fas fa-chart-line"></i> ESTADÍSTICAS</h4>
+                <div class="stats-grid">
+                    <div class="stat-card">
+                        <div class="stat-value">${this.firebaseData.bets.length}</div>
+                        <div class="stat-label">Apuestas totales</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-value">${this.firebaseData.results.length}</div>
+                        <div class="stat-label">Carreras con resultados</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-value">2</div>
+                        <div class="stat-label">Jugadores activos</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-value">${this.firebaseData.points.Varo + this.firebaseData.points.Cía}</div>
+                        <div class="stat-label">Puntos totales</div>
+                    </div>
+                </div>
+                
+                <button id="btn-refresh-admin" class="btn btn-secondary w-100 mt-20">
+                    <i class="fas fa-redo"></i> ACTUALIZAR DATOS
+                </button>
+            </div>
+        </div>
+    `;
+    
+    // Configurar botones del admin
+    const publishBtn = document.getElementById('btn-publish-results');
+    if (publishBtn) {
+        publishBtn.onclick = () => this.publishFullResults();
     }
-
+    
+    const saveLastNumBtn = document.getElementById('btn-save-last-number');
+    if (saveLastNumBtn) {
+        saveLastNumBtn.onclick = () => this.saveLastNumber();
+    }
+    
+    const refreshBtn = document.getElementById('btn-refresh-admin');
+    if (refreshBtn) {
+        refreshBtn.onclick = () => this.refreshData();
+    }
+    
+    // NO cargar resultados automáticamente
+    this.state.isAdminPanelReady = false;
+}
     loadExistingResults() {
         // Si hay resultados para la carrera seleccionada, cargarlos
         const gpSelect = document.getElementById('admin-gp-select');
