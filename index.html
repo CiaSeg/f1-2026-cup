@@ -6,7 +6,7 @@
     <title>F1 2026 Cup</title>
     <link rel="stylesheet" href="style.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <script src="google-sheets-service.js" defer></script>
+    <!-- REMOVER LOS SCRIPT DE ABAJO Y DEJAR SOLO ESTE -->
     <script src="app.js" defer></script>
 </head>
 <body>
@@ -18,8 +18,8 @@
     <div id="app" class="app-container" style="display: none;">
         <div id="landing-page" class="page active">
             <h1>F1 <span>2026</span></h1>
-            <h3 style="text-align:center; color:var(--f1-red)">COUPLE CUP</h3>
-            <div class="mobile-card">
+            <h3 class="text-center">COUPLE CUP</h3>
+            <div class="landing-card">
                 <p class="sub-text">SELECCIONA PILOTO</p>
                 <div class="player-buttons">
                     <button id="btn-varo" class="player-btn varo-btn">VARO</button>
@@ -42,28 +42,83 @@
             </div>
 
             <div class="tab-content">
+                <!-- TAB CARRERA -->
                 <div id="tab-race" class="tab-pane active">
-                    <div id="last-race-card" class="mobile-card" style="display:none">
-                        <p class="sub-text">🏁 ANTERIOR CARRERA</p>
-                        <h3 id="last-race-name"></h3>
+                    <!-- Carrera Anterior -->
+                    <div id="last-race-card" class="mobile-card hidden">
+                        <p class="sub-text">🏁 CARRERA ANTERIOR</p>
+                        <h3 id="last-race-name" class="mb-20"></h3>
                         <div class="last-race-content">
-                            <div class="podium-item"><img id="last-p2-img" src="" class="driver-img"><span></span></div>
-                            <div class="podium-item"><img id="last-p1-img" src="" class="driver-img"><span></span></div>
-                            <div class="podium-item"><img id="last-p3-img" src="" class="driver-img"><span></span></div>
+                            <div class="podium-item">
+                                <img id="last-p2-img" src="" class="driver-img" alt="2nd">
+                                <span class="sub-text">2º</span>
+                            </div>
+                            <div class="podium-item">
+                                <img id="last-p1-img" src="" class="driver-img" alt="1st">
+                                <span class="sub-text">1º</span>
+                            </div>
+                            <div class="podium-item">
+                                <img id="last-p3-img" src="" class="driver-img" alt="3rd">
+                                <span class="sub-text">3º</span>
+                            </div>
                         </div>
                     </div>
+
+                    <!-- Próximo GP -->
                     <div class="mobile-card">
                         <p class="sub-text">📅 PRÓXIMO GP</p>
                         <select id="gp-select" class="gp-select"></select>
                         <div class="circuit-header">
-                            <img id="circuit-flag" src="" class="flag-img">
+                            <img id="circuit-flag" src="" class="flag-img" alt="Bandera">
                             <h4 id="circuit-name"></h4>
                         </div>
-                        <img id="circuit-map" src="" class="map-img">
+                        <img id="circuit-map" src="" class="map-img" alt="Mapa del circuito">
+                    </div>
+
+                    <!-- Tus Apuestas -->
+                    <div class="mobile-card">
+                        <p class="sub-text">🎯 TUS APUESTAS</p>
+                        <div class="podium-builder mt-20">
+                            <div class="form-group">
+                                <label class="form-label">1er Lugar</label>
+                                <select id="p1-select" class="form-select">
+                                    <option value="">Selecciona piloto</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">2do Lugar</label>
+                                <select id="p2-select" class="form-select">
+                                    <option value="">Selecciona piloto</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">3er Lugar</label>
+                                <select id="p3-select" class="form-select">
+                                    <option value="">Selecciona piloto</option>
+                                </select>
+                            </div>
+                            <button id="btn-save-bet" class="btn btn-primary w-100 mt-20">
+                                <i class="fas fa-save"></i> GUARDAR APUESTA
+                            </button>
+                        </div>
                     </div>
                 </div>
-                <div id="tab-season" class="tab-pane"></div>
-                <div id="tab-points" class="tab-pane"></div>
+
+                <!-- TAB MUNDIAL -->
+                <div id="tab-season" class="tab-pane">
+                    <div class="mobile-card">
+                        <p class="sub-text">🏆 APUESTAS MUNDIALES</p>
+                        <!-- Contenido de apuestas mundiales -->
+                    </div>
+                </div>
+
+                <!-- TAB PUNTOS -->
+                <div id="tab-points" class="tab-pane">
+                    <div class="mobile-card">
+                        <p class="sub-text">📊 CLASIFICACIÓN</p>
+                        <!-- Tabla de puntos -->
+                    </div>
+                </div>
             </div>
         </div>
     </div>
