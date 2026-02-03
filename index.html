@@ -20,9 +20,9 @@
     <!-- Font Awesome -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     
-    <!-- Firebase -->
-    <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-app.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-database.js"></script>
+    <!-- Google Sheets -->
+    <script src="google-sheets-service.js"></script>
+    <script src="app.js"></script>
 </head>
 <body>
     <!-- Loading Screen -->
@@ -127,251 +127,90 @@
                     </button>
                 </div>
             </header>
+<div class="tabs-container">
+    <div class="tabs">
+        <button class="tab-btn active" data-tab="race">
+            <i class="fas fa-flag-checkered"></i>
+            <span>CARRERA</span>
+        </button>
+        <button class="tab-btn" data-tab="season">
+            <i class="fas fa-globe"></i>
+            <span>MUNDIAL</span>
+        </button>
+        <button class="tab-btn" data-tab="points">
+            <i class="fas fa-chart-line"></i>
+            <span>PUNTOS</span>
+        </button>
+    </div>
+</div>
 
-            <!-- Tabs -->
-            <div class="tabs-container">
-                <div class="tabs">
-                    <button class="tab-btn active" data-tab="race">
-                        <i class="fas fa-flag-checkered"></i>
-                        <span>CARRERA</span>
-                    </button>
-                    <button class="tab-btn" data-tab="season">
-                        <i class="fas fa-globe"></i>
-                        <span>MUNDIAL</span>
-                    </button>
-                    <button class="tab-btn" data-tab="points">
-                        <i class="fas fa-chart-line"></i>
-                        <span>PUNTOS</span>
-                    </button>
+<div class="tab-content">
+    <div id="tab-race" class="tab-pane active">
+        
+        <div id="last-race-card" class="mobile-card" style="display: none;">
+            <p class="sub-text">🏁 ANTERIOR CARRERA</p>
+            <h3 id="last-race-name" style="text-align: center; margin: 10px 0;"></h3>
+            <div class="last-race-content">
+                <div class="podium-item">
+                    <p class="sub-text">2º</p>
+                    <img id="last-p2-img" class="driver-img" src="" alt="P2">
+                    <span id="last-p2-name"></span>
                 </div>
-            </div>
-
-            <!-- Tab Content -->
-            <div class="tab-content">
-                <!-- Race Tab -->
-                <div id="tab-race" class="tab-pane active">
-                    <!-- Last Race Results -->
-                    <div id="last-race-card" class="race-card" style="display: none;">
-                        <h3><i class="fas fa-trophy"></i> ÚLTIMO RESULTADO</h3>
-                        <div class="last-race-content">
-                            <h4 id="last-race-name"></h4>
-                            <div class="last-podium">
-                                <div class="podium-item">
-                                    <div class="podium-pos">🥇</div>
-                                    <img id="last-p1-img" class="driver-img" src="" alt="">
-                                    <span id="last-p1-name"></span>
-                                </div>
-                                <div class="podium-item">
-                                    <div class="podium-pos">🥈</div>
-                                    <img id="last-p2-img" class="driver-img" src="" alt="">
-                                    <span id="last-p2-name"></span>
-                                </div>
-                                <div class="podium-item">
-                                    <div class="podium-pos">🥉</div>
-                                    <img id="last-p3-img" class="driver-img" src="" alt="">
-                                    <span id="last-p3-name"></span>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Next GP -->
-                    <div class="race-card">
-                        <h3><i class="fas fa-calendar-alt"></i> PRÓXIMO GP</h3>
-                        <select id="gp-select" class="gp-select">
-                            <!-- Options loaded by JS -->
-                        </select>
-                        
-                        <div class="circuit-info">
-                            <div class="circuit-flag">
-                                <img id="circuit-flag" src="" alt="" class="flag-img">
-                            </div>
-                            <div class="circuit-details">
-                                <h4 id="circuit-name"></h4>
-                                <div class="circuit-map">
-                                    <img id="circuit-map" src="" alt="" class="map-img">
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Betting Section -->
-                    <div class="race-card">
-                        <h3><i class="fas fa-brain"></i> TU ESTRATEGIA</h3>
-                        
-                        <div class="podium-selection">
-                            <!-- First Place -->
-                            <div class="selection-item first-place">
-                                <div class="selection-header">
-                                    <span class="place-badge">🥇</span>
-                                    <select id="select-p1" class="driver-select">
-                                        <option value="">Selecciona piloto</option>
-                                    </select>
-                                </div>
-                                <div class="driver-preview">
-                                    <img id="preview-p1" src="" alt="" class="driver-preview-img">
-                                    <div class="driver-info">
-                                        <span id="name-p1"></span>
-                                        <small id="team-p1"></small>
-                                    </div>
-                                </div>
-                            </div>
-                            
-                            <!-- Second Place -->
-                            <div class="selection-item second-place">
-                                <div class="selection-header">
-                                    <span class="place-badge">🥈</span>
-                                    <select id="select-p2" class="driver-select">
-                                        <option value="">Selecciona piloto</option>
-                                    </select>
-                                </div>
-                                <div class="driver-preview">
-                                    <img id="preview-p2" src="" alt="" class="driver-preview-img">
-                                    <div class="driver-info">
-                                        <span id="name-p2"></span>
-                                        <small id="team-p2"></small>
-                                    </div>
-                                </div>
-                            </div>
-                            
-                            <!-- Third Place -->
-                            <div class="selection-item third-place">
-                                <div class="selection-header">
-                                    <span class="place-badge">🥉</span>
-                                    <select id="select-p3" class="driver-select">
-                                        <option value="">Selecciona piloto</option>
-                                    </select>
-                                </div>
-                                <div class="driver-preview">
-                                    <img id="preview-p3" src="" alt="" class="driver-preview-img">
-                                    <div class="driver-info">
-                                        <span id="name-p3"></span>
-                                        <small id="team-p3"></small>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                        
-                        <button id="btn-submit-bet" class="submit-btn">
-                            <i class="fas fa-paper-plane"></i> ENVIAR APUESTA
-                        </button>
-                    </div>
+                <div class="podium-item">
+                    <p class="sub-text">GANADOR</p>
+                    <img id="last-p1-img" class="driver-img" src="" alt="P1">
+                    <span id="last-p1-name"></span>
                 </div>
-
-                <!-- Season Tab -->
-                <div id="tab-season" class="tab-pane">
-                    <div class="season-card">
-                        <div class="season-notice">
-                            <i class="fas fa-exclamation-triangle"></i>
-                            <p>Apuesta única anual. Bloquear antes del primer GP.</p>
-                        </div>
-                        
-                        <div id="season-bet-info" style="display: none;">
-                            <h3><i class="fas fa-check-circle"></i> APUESTA REGISTRADA</h3>
-                            <!-- Content loaded by JS -->
-                        </div>
-                        
-                        <div id="season-bet-form">
-                            <!-- Drivers Championship -->
-                            <div class="championship-section">
-                                <h3><i class="fas fa-user-helmet-safety"></i> MUNDIAL DE PILOTOS</h3>
-                                <div class="championship-picks">
-                                    <div class="champion-pick">
-                                        <label>🥇 CAMPEÓN</label>
-                                        <select id="season-dp1" class="champion-select"></select>
-                                        <div class="champion-preview">
-                                            <img id="preview-dp1" src="" alt="" class="champion-img">
-                                        </div>
-                                    </div>
-                                    <div class="champion-pick">
-                                        <label>🥈 SUBCAMPEÓN</label>
-                                        <select id="season-dp2" class="champion-select"></select>
-                                        <div class="champion-preview">
-                                            <img id="preview-dp2" src="" alt="" class="champion-img">
-                                        </div>
-                                    </div>
-                                    <div class="champion-pick">
-                                        <label>🥉 TERCERO</label>
-                                        <select id="season-dp3" class="champion-select"></select>
-                                        <div class="champion-preview">
-                                            <img id="preview-dp3" src="" alt="" class="champion-img">
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                            
-                            <!-- Teams Championship -->
-                            <div class="championship-section">
-                                <h3><i class="fas fa-car"></i> MUNDIAL DE CONSTRUCTORES</h3>
-                                <div class="championship-picks">
-                                    <div class="champion-pick">
-                                        <label>🥇 CAMPEÓN</label>
-                                        <select id="season-tp1" class="team-select"></select>
-                                        <div class="team-preview">
-                                            <img id="preview-tp1" src="" alt="" class="team-img">
-                                        </div>
-                                    </div>
-                                    <div class="champion-pick">
-                                        <label>🥈 SUBCAMPEÓN</label>
-                                        <select id="season-tp2" class="team-select"></select>
-                                        <div class="team-preview">
-                                            <img id="preview-tp2" src="" alt="" class="team-img">
-                                        </div>
-                                    </div>
-                                    <div class="champion-pick">
-                                        <label>🥉 TERCERO</label>
-                                        <select id="season-tp3" class="team-select"></select>
-                                        <div class="team-preview">
-                                            <img id="preview-tp3" src="" alt="" class="team-img">
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                            
-                            <button id="btn-submit-season" class="season-submit-btn">
-                                <i class="fas fa-lock"></i> BLOQUEAR APUESTA
-                            </button>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Points Tab -->
-                <div id="tab-points" class="tab-pane">
-                    <div class="points-card">
-                        <h3><i class="fas fa-chart-bar"></i> PUNTUACIÓN TOTAL</h3>
-                        
-                        <div class total-score>
-                            <div class="player-score varo-score">
-                                <div class="score-name">VARO</div>
-                                <div class="score-value" id="total-varo">0</div>
-                                <div class="score-breakdown">
-                                    <span>Carreras: <span id="race-varo">0</span></span>
-                                    <span>Mundial: <span id="season-varo">0</span></span>
-                                </div>
-                            </div>
-                            
-                            <div class="vs-big">VS</div>
-                            
-                            <div class="player-score cia-score">
-                                <div class="score-name">CÍA</div>
-                                <div class="score-value" id="total-cia">0</div>
-                                <div class="score-breakdown">
-                                    <span>Carreras: <span id="race-cia">0</span></span>
-                                    <span>Mundial: <span id="season-cia">0</span></span>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                    
-                    <div class="races-card">
-                        <h3><i class="fas fa-flag-checkered"></i> CARRERAS DISPUTADAS</h3>
-                        <div id="races-table" class="races-table">
-                            <!-- Table loaded by JS -->
-                        </div>
-                    </div>
+                <div class="podium-item">
+                    <p class="sub-text">3º</p>
+                    <img id="last-p3-img" class="driver-img" src="" alt="P3">
+                    <span id="last-p3-name"></span>
                 </div>
             </div>
         </div>
+
+        <div class="mobile-card">
+            <p class="sub-text">📅 PRÓXIMO GP</p>
+            <select id="gp-select" class="gp-select">
+                </select>
+            
+            <div class="circuit-info">
+                <div class="circuit-header" style="display: flex; align-items: center; gap: 15px; margin-bottom: 10px;">
+                    <img id="circuit-flag" src="" alt="Bandera" class="flag-img" style="width: 60px;">
+                    <h4 id="circuit-name" style="margin:0;"></h4>
+                </div>
+                <div class="circuit-map" style="text-align: center;">
+                    <img id="circuit-map" src="" alt="Mapa" class="map-img" style="width: 100%; max-width: 300px;">
+                </div>
+            </div>
+        </div>
+
+        <div class="mobile-card">
+            <p class="sub-text">🏎️ TU ESTRATEGIA</p>
+            <div class="podium-selection" style="display: flex; justify-content: space-between; gap: 10px; margin-top: 15px;">
+                <div class="selection-item" style="flex:1; text-align: center;">
+                    <label>🥇</label>
+                    <select id="select-p1" class="driver-select" style="width:100%; margin-bottom: 5px;"></select>
+                    <img id="preview-p1" src="" alt="" class="driver-preview-img" style="width: 100%; border-radius: 50%;">
+                </div>
+                <div class="selection-item" style="flex:1; text-align: center;">
+                    <label>🥈</label>
+                    <select id="select-p2" class="driver-select" style="width:100%; margin-bottom: 5px;"></select>
+                    <img id="preview-p2" src="" alt="" class="driver-preview-img" style="width: 100%; border-radius: 50%;">
+                </div>
+                <div class="selection-item" style="flex:1; text-align: center;">
+                    <label>🥉</label>
+                    <select id="select-p3" class="driver-select" style="width:100%; margin-bottom: 5px;"></select>
+                    <img id="preview-p3" src="" alt="" class="driver-preview-img" style="width: 100%; border-radius: 50%;">
+                </div>
+            </div>
+            
+            <button id="btn-submit-bet" class="player-btn varo-btn" style="margin-top: 20px;">
+                ENVIAR APUESTA
+            </button>
+        </div>
+    </div>
+
     </div>
 
     <!-- Modals -->
@@ -415,5 +254,16 @@
             });
         }
     </script>
+
+    <!-- Al final del body -->
+    <script src="google-sheets-service.js"></script>
+    <script src="app.js"></script>
+    <script>
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', function() {
+                navigator.serviceWorker.register('service-worker.js');
+            });
+        }
+</script>
 </body>
 </html>

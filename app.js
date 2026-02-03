@@ -1,4 +1,4 @@
-// app.js - Versión completa para GitHub Pages
+// app.js - VERSIÓN COMPLETA PARA GOOGLE SHEETS
 class F1CupApp {
     constructor() {
         // Estado de la aplicación
@@ -13,7 +13,7 @@ class F1CupApp {
             dataLoaded: false
         };
 
-        // Datos estáticos
+        // Datos estáticos (igual que en Streamlit)
         this.data = {
             circuits: {
                 "GP Australia (06-08 Mar)": {
@@ -178,7 +178,7 @@ class F1CupApp {
             }
         };
 
-        // Datos dinámicos (Google Sheets)
+        // Datos dinámicos (desde Google Sheets y local)
         this.sheetsData = {
             bets: [],
             results: [],
@@ -186,29 +186,42 @@ class F1CupApp {
             points: { Varo: 0, Cía: 0 }
         };
 
+        // Estado de conexión
+        this.isOnline = navigator.onLine;
+        this.lastSync = localStorage.getItem('f1_last_sync') || null;
+        
+        // Variables para Google Sheets
+        this.sheetsService = null;
+        this.syncInProgress = false;
+        
+        // Listas ordenadas
         this.circuitsList = Object.keys(this.data.circuits);
         this.driversList = Object.keys(this.data.drivers).sort();
         this.teamsList = Object.keys(this.data.teams).sort();
 
+        // Inicializar
         this.init();
     }
 
     async init() {
         // Ocultar loading después de 1.5 segundos
-        setTimeout(() => {
+        setTimeout(async () => {
             document.getElementById('loading').style.display = 'none';
             document.getElementById('app').style.display = 'block';
             
-            // Cargar datos
+            // Cargar datos locales
             this.loadLocalData();
-            this.setupEventListeners();
-            this.updateUI();
-            this.loadSheetsData();
             
-            // Configurar Firebase si existe
-            if (window.firebaseApp) {
-                this.setupFirebase();
-            }
+            // Configurar eventos
+            this.setupEventListeners();
+            this.setupNetworkListeners();
+            
+            // Inicializar Google Sheets Service
+            this.initGoogleSheets();
+            
+            // Actualizar UI
+            this.updateUI();
+            
         }, 1500);
     }
 
@@ -240,6 +253,7 @@ class F1CupApp {
             this.updateCircuitInfo();
         });
         
+        // Selectores de pilotos
         ['p1', 'p2', 'p3'].forEach((pos, index) => {
             document.getElementById(`select-${pos}`).addEventListener('change', (e) => {
                 this.state.selectedPodium[index] = e.target.value;
@@ -247,6 +261,7 @@ class F1CupApp {
             });
         });
         
+        // Botón enviar apuesta
         document.getElementById('btn-submit-bet').addEventListener('click', () => this.submitBet());
         
         // Season tab
@@ -272,31 +287,222 @@ class F1CupApp {
                 });
             });
         });
+        
+        // Sincronización manual
+        document.getElementById('btn-sync').addEventListener('click', () => this.syncWithSheets());
     }
 
-    selectUser(user) {
-        this.state.currentUser = user;
-        localStorage.setItem('f1_user', user);
-        
-        // Actualizar UI
-        document.querySelectorAll('.player-btn').forEach(btn => {
-            btn.classList.remove('active');
+    setupNetworkListeners() {
+        window.addEventListener('online', () => {
+            this.isOnline = true;
+            console.log('🌐 Conectado a internet');
+            this.updateConnectionStatus();
+            
+            // Intentar sincronizar cuando vuelve la conexión
+            if (this.sheetsService && this.sheetsService.isAvailable()) {
+                setTimeout(() => this.syncWithSheets(), 1000);
+            }
         });
         
-        if (user === 'Varo') {
-            document.getElementById('btn-varo').classList.add('active');
-            document.getElementById('current-user').textContent = 'VARO';
-            document.getElementById('current-user').style.color = '#007bff';
+        window.addEventListener('offline', () => {
+            this.isOnline = false;
+            console.log('⚠️ Sin conexión a internet');
+            this.updateConnectionStatus();
+        });
+        
+        // Verificar estado inicial
+        this.updateConnectionStatus();
+    }
+
+    updateConnectionStatus() {
+        const statusEl = document.getElementById('sync-status');
+        if (!statusEl) return;
+        
+        if (this.isOnline) {
+            if (this.sheetsService && this.sheetsService.isAvailable()) {
+                statusEl.innerHTML = '<i class="fas fa-wifi"></i> Conectado a Google Sheets';
+                statusEl.className = 'status-connected';
+            } else {
+                statusEl.innerHTML = '<i class="fas fa-wifi"></i> Online';
+                statusEl.className = 'status-online';
+            }
         } else {
-            document.getElementById('btn-cia').classList.add('active');
-            document.getElementById('current-user').textContent = 'CÍA';
-            document.getElementById('current-user').style.color = '#e83e8c';
+            statusEl.innerHTML = '<i class="fas fa-cloud"></i> Offline';
+            statusEl.className = 'status-offline';
         }
         
-        // Ir a la app principal
-        this.state.currentPage = 'main';
-        this.updateUI();
+        // Actualizar última sincronización
+        if (this.lastSync) {
+            const lastSyncEl = document.getElementById('last-update');
+            if (lastSyncEl) {
+                const date = new Date(this.lastSync);
+                lastSyncEl.textContent = `Actualizado: ${date.toLocaleTimeString('es-ES')}`;
+            }
+        }
     }
+
+    initGoogleSheets() {
+        // Verificar si el servicio está disponible
+        if (window.GoogleSheetsService) {
+            this.sheetsService = window.GoogleSheetsService;
+            console.log('✅ Google Sheets Service disponible');
+            
+            // Cargar datos iniciales
+            this.loadFromGoogleSheets();
+        } else {
+            console.log('⚠️ Google Sheets Service no disponible, usando modo local');
+            this.loadMainApp();
+        }
+    }
+
+    async loadFromGoogleSheets() {
+        if (!this.sheetsService || !this.sheetsService.isAvailable()) {
+            console.log('⚠️ No se puede cargar desde Google Sheets');
+            this.loadMainApp();
+            return;
+        }
+        
+        try {
+            console.log('📥 Cargando datos desde Google Sheets...');
+            
+            // Mostrar indicador de carga
+            this.showLoadingIndicator(true);
+            
+            // Cargar todos los datos en paralelo
+            const [bets, results, seasonBets] = await Promise.all([
+                this.sheetsService.getBets(),
+                this.sheetsService.getResults(),
+                this.sheetsService.getSeasonBets()
+            ]);
+            
+            // Actualizar datos locales
+            this.sheetsData.bets = bets;
+            this.sheetsData.results = results;
+            this.sheetsData.seasonBets = seasonBets;
+            
+            // Guardar localmente
+            this.saveLocalData();
+            
+            // Actualizar última sincronización
+            this.lastSync = Date.now();
+            localStorage.setItem('f1_last_sync', this.lastSync);
+            
+            console.log(`✅ Datos cargados: ${bets.length} apuestas, ${results.length} resultados`);
+            
+            // Ocultar indicador de carga
+            this.showLoadingIndicator(false);
+            
+            // Actualizar UI
+            this.loadMainApp();
+            
+            // Mostrar notificación
+            this.showNotification('Datos cargados desde Google Sheets', 'success');
+            
+        } catch (error) {
+            console.error('❌ Error cargando desde Google Sheets:', error);
+            this.showLoadingIndicator(false);
+            this.showNotification('Error cargando datos. Usando datos locales.', 'error');
+            this.loadMainApp();
+        }
+    }
+
+    async syncWithSheets() {
+        if (!this.sheetsService || !this.sheetsService.isAvailable() || this.syncInProgress) {
+            return;
+        }
+        
+        this.syncInProgress = true;
+        
+        try {
+            console.log('🔄 Sincronizando con Google Sheets...');
+            
+            // Mostrar indicador
+            const syncBtn = document.getElementById('btn-sync');
+            if (syncBtn) {
+                syncBtn.innerHTML = '<i class="fas fa-sync fa-spin"></i>';
+                syncBtn.disabled = true;
+            }
+            
+            // Sincronizar apuestas locales no guardadas
+            const localBets = this.sheetsData.bets.filter(bet => !bet.synced);
+            let syncedCount = 0;
+            
+            for (const bet of localBets) {
+                const result = await this.sheetsService.saveBet(bet);
+                if (result.success) {
+                    bet.synced = true;
+                    syncedCount++;
+                }
+            }
+            
+            // Guardar cambios locales
+            this.saveLocalData();
+            
+            // Recargar datos del sheet
+            await this.loadFromGoogleSheets();
+            
+            // Actualizar botón
+            if (syncBtn) {
+                syncBtn.innerHTML = '<i class="fas fa-sync"></i> Sincronizar';
+                syncBtn.disabled = false;
+            }
+            
+            this.syncInProgress = false;
+            
+            // Mostrar resultado
+            if (syncedCount > 0) {
+                this.showNotification(`${syncedCount} apuestas sincronizadas`, 'success');
+            }
+            
+        } catch (error) {
+            console.error('❌ Error sincronizando:', error);
+            this.syncInProgress = false;
+            
+            const syncBtn = document.getElementById('btn-sync');
+            if (syncBtn) {
+                syncBtn.innerHTML = '<i class="fas fa-sync"></i> Sincronizar';
+                syncBtn.disabled = false;
+            }
+            
+            this.showNotification('Error sincronizando', 'error');
+        }
+    }
+selectUser(user) {
+    this.state.currentUser = user;
+    localStorage.setItem('f1_user', user);
+    
+    const root = document.documentElement;
+    const userDisplay = document.getElementById('current-user');
+    
+    if (user === 'Varo') {
+        userDisplay.style.color = '#e10600'; // Rojo
+        userDisplay.textContent = 'VARO';
+    } else {
+        userDisplay.style.color = '#15151e'; // Negro
+        userDisplay.textContent = 'CÍA';
+    }
+    
+    this.state.currentPage = 'main';
+    this.updateUI();
+}
+
+// Mejora en la carga del podio anterior
+loadLastRace() {
+    if (this.sheetsData.results.length > 0) {
+        const lastResult = this.sheetsData.results[this.sheetsData.results.length - 1];
+        document.getElementById('last-race-name').textContent = lastResult.Carrera.split(' (')[0];
+        
+        const positions = ['P1', 'P2', 'P3'];
+        positions.forEach(pos => {
+            const driverName = lastResult[pos + '_Real'];
+            const driverInfo = this.data.drivers[driverName];
+            if (driverInfo) {
+                document.getElementById(`last-${pos.toLowerCase()}-name`).textContent = driverName;
+                document.getElementById(`last-${pos.toLowerCase()}-img`).src = driverInfo.foto;
+            }
+        });
+    }
+}
 
     goToLanding() {
         this.state.currentPage = 'landing';
@@ -346,11 +552,10 @@ class F1CupApp {
 
     updateLandingStats() {
         // Calcular puntos para landing
-        const varoPoints = this.sheetsData.points.Varo || 0;
-        const ciaPoints = this.sheetsData.points.Cía || 0;
+        this.calculatePoints();
         
-        document.getElementById('stats-varo').textContent = varoPoints;
-        document.getElementById('stats-cia').textContent = ciaPoints;
+        document.getElementById('stats-varo').textContent = this.sheetsData.points.Varo;
+        document.getElementById('stats-cia').textContent = this.sheetsData.points.Cía;
     }
 
     loadMainApp() {
@@ -380,14 +585,15 @@ class F1CupApp {
         
         // También para admin
         const adminSelect = document.getElementById('admin-gp-select');
-        adminSelect.innerHTML = '';
-        
-        this.circuitsList.forEach((circuit, index) => {
-            const option = document.createElement('option');
-            option.value = index;
-            option.textContent = circuit;
-            adminSelect.appendChild(option);
-        });
+        if (adminSelect) {
+            adminSelect.innerHTML = '';
+            this.circuitsList.forEach((circuit, index) => {
+                const option = document.createElement('option');
+                option.value = index;
+                option.textContent = circuit;
+                adminSelect.appendChild(option);
+            });
+        }
     }
 
     loadDriverSelectors() {
@@ -524,7 +730,8 @@ class F1CupApp {
             P1: this.state.selectedPodium[0],
             P2: this.state.selectedPodium[1],
             P3: this.state.selectedPodium[2],
-            Fecha: new Date().toISOString()
+            Fecha: new Date().toISOString(),
+            synced: false // Marcar como no sincronizado
         };
         
         try {
@@ -532,17 +739,30 @@ class F1CupApp {
             this.sheetsData.bets.push(bet);
             this.saveLocalData();
             
-            // Enviar a Google Sheets (simulado)
-            await this.saveToSheets('Apuestas', bet);
+            // Intentar guardar en Google Sheets inmediatamente
+            let sheetsResult = null;
+            if (this.sheetsService && this.sheetsService.isAvailable() && this.isOnline) {
+                sheetsResult = await this.sheetsService.saveBet(bet);
+                
+                if (sheetsResult.success) {
+                    bet.synced = true;
+                    this.saveLocalData();
+                    console.log('✅ Apuesta guardada en Google Sheets');
+                }
+            }
             
             // Mostrar éxito
-            this.showSuccess(
-                'Apuesta Registrada',
-                `Has apostado para ${circuit.split(' (')[0]}<br><br>
-                🥇 ${bet.P1}<br>
-                🥈 ${bet.P2}<br>
-                🥉 ${bet.P3}`
-            );
+            let message = `Has apostado para ${circuit.split(' (')[0]}<br><br>🥇 ${bet.P1}<br>🥈 ${bet.P2}<br>🥉 ${bet.P3}`;
+            
+            if (sheetsResult && sheetsResult.success) {
+                message += '<br><br><small>✅ Sincronizado con Google Sheets</small>';
+            } else if (!this.isOnline) {
+                message += '<br><br><small>⚠️ Guardado localmente (sin conexión)</small>';
+            } else {
+                message += '<br><br><small>⚠️ Guardado localmente (error de sincronización)</small>';
+            }
+            
+            this.showSuccess('Apuesta Registrada', message);
             
             // Resetear selección
             this.state.selectedPodium = ['', '', ''];
@@ -552,6 +772,9 @@ class F1CupApp {
                 document.getElementById(`name-${pos}`).textContent = '';
                 document.getElementById(`team-${pos}`).textContent = '';
             });
+            
+            // Actualizar puntos
+            this.calculatePoints();
             
         } catch (error) {
             this.showError('Error al guardar la apuesta: ' + error.message);
@@ -601,14 +824,29 @@ class F1CupApp {
             this.sheetsData.seasonBets.push(seasonBet);
             this.saveLocalData();
             
-            // Enviar a Google Sheets (simulado)
-            await this.saveToSheets('Mundial', seasonBet);
+            // Guardar en Google Sheets
+            let sheetsResult = null;
+            if (this.sheetsService && this.sheetsService.isAvailable() && this.isOnline) {
+                sheetsResult = await this.sheetsService.saveSeasonBet(seasonBet);
+                
+                if (sheetsResult && sheetsResult.success) {
+                    console.log('✅ Apuesta mundial guardada en Google Sheets');
+                } else if (sheetsResult && sheetsResult.error) {
+                    // Si ya existe apuesta
+                    this.showError(sheetsResult.error);
+                    return;
+                }
+            }
             
             // Mostrar éxito
-            this.showSuccess(
-                'Apuesta Mundial Registrada',
-                'Tu apuesta para el mundial ha sido bloqueada correctamente'
-            );
+            let message = 'Tu apuesta para el mundial ha sido bloqueada correctamente';
+            if (sheetsResult && sheetsResult.success) {
+                message += '<br><small>✅ Sincronizado con Google Sheets</small>';
+            } else if (!this.isOnline) {
+                message += '<br><small>⚠️ Guardado localmente (sin conexión)</small>';
+            }
+            
+            this.showSuccess('Apuesta Mundial Registrada', message);
             
             // Actualizar UI
             this.loadSeasonBet();
@@ -679,7 +917,7 @@ class F1CupApp {
             
             // Actualizar podio
             ['P1', 'P2', 'P3'].forEach((pos, index) => {
-                const driverName = lastResult[`${pos}_Real`];
+                const driverName = lastResult[`${pos}_Real`] || lastResult[`P${index + 1}`];
                 if (driverName && this.data.drivers[driverName]) {
                     document.getElementById(`last-${pos.toLowerCase()}-name`).textContent = driverName;
                     this.updateImage(
@@ -693,11 +931,11 @@ class F1CupApp {
     }
 
     calculatePoints() {
-        // Simular cálculo de puntos (similar a tu lógica de Streamlit)
+        // Inicializar puntos
         let racePoints = { Varo: 0, Cía: 0 };
         let seasonPoints = { Varo: 0, Cía: 0 };
         
-        // Calcular puntos por carrera
+        // Calcular puntos por carrera (similar a Streamlit)
         this.sheetsData.results.forEach(result => {
             const varoBet = this.sheetsData.bets.find(
                 b => b.Carrera === result.Carrera && b.Jugador === 'Varo'
@@ -725,62 +963,77 @@ class F1CupApp {
             });
         }
         
-        // Actualizar UI
-        document.getElementById('total-varo').textContent = racePoints.Varo + seasonPoints.Varo;
-        document.getElementById('total-cia').textContent = racePoints.Cía + seasonPoints.Cía;
-        document.getElementById('race-varo').textContent = racePoints.Varo;
-        document.getElementById('race-cia').textContent = racePoints.Cía;
-        document.getElementById('season-varo').textContent = seasonPoints.Varo;
-        document.getElementById('season-cia').textContent = seasonPoints.Cía;
+        // Guardar puntos totales
+        this.sheetsData.points.Varo = racePoints.Varo + seasonPoints.Varo;
+        this.sheetsData.points.Cía = racePoints.Cía + seasonPoints.Cía;
         
-        // Actualizar tabla de carreras
-        this.updateRacesTable();
+        // Actualizar UI si estamos en la página de puntos
+        if (this.state.currentTab === 'points' || this.state.currentPage === 'landing') {
+            document.getElementById('total-varo').textContent = this.sheetsData.points.Varo;
+            document.getElementById('total-cia').textContent = this.sheetsData.points.Cía;
+            document.getElementById('race-varo').textContent = racePoints.Varo;
+            document.getElementById('race-cia').textContent = racePoints.Cía;
+            document.getElementById('season-varo').textContent = seasonPoints.Varo;
+            document.getElementById('season-cia').textContent = seasonPoints.Cía;
+            
+            // Actualizar tabla de carreras
+            this.updateRacesTable();
+        }
     }
 
     calculateRacePoints(bet, result) {
         let points = 0;
         const podium = [
-            result.P1_Real,
-            result.P2_Real, 
-            result.P3_Real
-        ];
+            result.P1_Real || result.P1,
+            result.P2_Real || result.P2, 
+            result.P3_Real || result.P3
+        ].filter(Boolean); // Filtrar valores nulos/undefined
         
         // Puntos por aciertos exactos
-        if (bet.P1 === result.P1_Real) points += 5;
-        if (bet.P2 === result.P2_Real) points += 5;
-        if (bet.P3 === result.P3_Real) points += 5;
+        if (bet.P1 === (result.P1_Real || result.P1)) points += 5;
+        if (bet.P2 === (result.P2_Real || result.P2)) points += 5;
+        if (bet.P3 === (result.P3_Real || result.P3)) points += 5;
         
         // Puntos por estar en podio
-        if (bet.P1 !== result.P1_Real && podium.includes(bet.P1)) points += 2;
-        if (bet.P2 !== result.P2_Real && podium.includes(bet.P2)) points += 2;
-        if (bet.P3 !== result.P3_Real && podium.includes(bet.P3)) points += 2;
+        if (bet.P1 !== (result.P1_Real || result.P1) && podium.includes(bet.P1)) points += 2;
+        if (bet.P2 !== (result.P2_Real || result.P2) && podium.includes(bet.P2)) points += 2;
+        if (bet.P3 !== (result.P3_Real || result.P3) && podium.includes(bet.P3)) points += 2;
         
         return points;
     }
 
     calculateSeasonPoints(playerBet, finalResult) {
         let points = 0;
-        const driverPodium = [finalResult.D_P1, finalResult.D_P2, finalResult.D_P3];
-        const teamPodium = [finalResult.T_P1, finalResult.T_P2, finalResult.T_P3];
+        const driverPodium = [
+            finalResult.D_P1 || finalResult['P1_Real'] || finalResult.P1,
+            finalResult.D_P2 || finalResult['P2_Real'] || finalResult.P2,
+            finalResult.D_P3 || finalResult['P3_Real'] || finalResult.P3
+        ].filter(Boolean);
+        
+        const teamPodium = [
+            finalResult.T_P1 || finalResult['Equipo_1'],
+            finalResult.T_P2 || finalResult['Equipo_2'],
+            finalResult.T_P3 || finalResult['Equipo_3']
+        ].filter(Boolean);
         
         // Puntos por pilotos
-        if (playerBet.D_P1 === finalResult.D_P1) points += 10;
+        if (playerBet.D_P1 === (finalResult.D_P1 || finalResult['P1_Real'] || finalResult.P1)) points += 10;
         else if (driverPodium.includes(playerBet.D_P1)) points += 4;
         
-        if (playerBet.D_P2 === finalResult.D_P2) points += 8;
+        if (playerBet.D_P2 === (finalResult.D_P2 || finalResult['P2_Real'] || finalResult.P2)) points += 8;
         else if (driverPodium.includes(playerBet.D_P2)) points += 4;
         
-        if (playerBet.D_P3 === finalResult.D_P3) points += 6;
+        if (playerBet.D_P3 === (finalResult.D_P3 || finalResult['P3_Real'] || finalResult.P3)) points += 6;
         else if (driverPodium.includes(playerBet.D_P3)) points += 4;
         
         // Puntos por equipos
-        if (playerBet.T_P1 === finalResult.T_P1) points += 10;
+        if (playerBet.T_P1 === (finalResult.T_P1 || finalResult['Equipo_1'])) points += 10;
         else if (teamPodium.includes(playerBet.T_P1)) points += 4;
         
-        if (playerBet.T_P2 === finalResult.T_P2) points += 8;
+        if (playerBet.T_P2 === (finalResult.T_P2 || finalResult['Equipo_2'])) points += 8;
         else if (teamPodium.includes(playerBet.T_P2)) points += 4;
         
-        if (playerBet.T_P3 === finalResult.T_P3) points += 6;
+        if (playerBet.T_P3 === (finalResult.T_P3 || finalResult['Equipo_3'])) points += 6;
         else if (teamPodium.includes(playerBet.T_P3)) points += 4;
         
         return points;
@@ -788,6 +1041,8 @@ class F1CupApp {
 
     updateRacesTable() {
         const table = document.getElementById('races-table');
+        if (!table) return;
+        
         if (this.sheetsData.results.length === 0) {
             table.innerHTML = '<p class="no-races">Aún no hay carreras disputadas</p>';
             return;
@@ -854,8 +1109,12 @@ class F1CupApp {
         
         ['P1', 'P2', 'P3'].forEach(pos => {
             const driver = bet[pos];
+            if (!driver) return;
+            
+            // Buscar posición real del piloto en resultados
             for (let i = 1; i <= 22; i++) {
-                if (result[`P${i}_Real`] === driver) {
+                const resultKey = `P${i}_Real`;
+                if (result[resultKey] === driver) {
                     sum += i;
                     break;
                 }
@@ -868,16 +1127,18 @@ class F1CupApp {
     // Admin functions
     toggleAdmin() {
         const panel = document.getElementById('admin-panel');
-        panel.style.display = panel.style.display === 'none' ? 'block' : 'none';
+        if (panel) {
+            panel.style.display = panel.style.display === 'none' ? 'block' : 'none';
+        }
     }
 
     checkAdminPassword(password) {
         const adminContent = document.getElementById('admin-content');
+        if (!adminContent) return;
+        
         if (password === 'admin123') {
             this.state.isAdmin = true;
             adminContent.style.display = 'block';
-            
-            // Cargar datos para admin
             this.loadAdminData();
         } else {
             this.state.isAdmin = false;
@@ -893,9 +1154,9 @@ class F1CupApp {
             
             if (circuitIndex !== -1) {
                 document.getElementById('admin-gp-select').value = circuitIndex;
-                document.getElementById('admin-p1').value = lastResult.P1_Real || '';
-                document.getElementById('admin-p2').value = lastResult.P2_Real || '';
-                document.getElementById('admin-p3').value = lastResult.P3_Real || '';
+                document.getElementById('admin-p1').value = lastResult.P1_Real || lastResult.P1 || '';
+                document.getElementById('admin-p2').value = lastResult.P2_Real || lastResult.P2 || '';
+                document.getElementById('admin-p3').value = lastResult.P3_Real || lastResult.P3 || '';
             }
         }
     }
@@ -930,16 +1191,22 @@ class F1CupApp {
             this.sheetsData.results.push(result);
             this.saveLocalData();
             
-            // Enviar a Google Sheets (simulado)
-            await this.saveToSheets('Resultados', result);
+            // Guardar en Google Sheets
+            let sheetsResult = null;
+            if (this.sheetsService && this.sheetsService.isAvailable() && this.isOnline) {
+                sheetsResult = await this.sheetsService.saveResult(result);
+            }
             
-            this.showSuccess(
-                'Resultados Publicados',
-                `Podio de ${circuit.split(' (')[0]} publicado correctamente:<br><br>
-                🥇 ${p1}<br>
-                🥈 ${p2}<br>
-                🥉 ${p3}`
-            );
+            // Mostrar mensaje
+            let message = `Podio de ${circuit.split(' (')[0]} publicado correctamente:<br><br>🥇 ${p1}<br>🥈 ${p2}<br>🥉 ${p3}`;
+            
+            if (sheetsResult && sheetsResult.success) {
+                message += '<br><br><small>✅ Sincronizado con Google Sheets</small>';
+            } else if (!this.isOnline) {
+                message += '<br><br><small>⚠️ Guardado localmente (sin conexión)</small>';
+            }
+            
+            this.showSuccess('Resultados Publicados', message);
             
             // Actualizar UI
             this.loadLastRace();
@@ -957,9 +1224,10 @@ class F1CupApp {
             if (saved) {
                 const data = JSON.parse(saved);
                 this.sheetsData = { ...this.sheetsData, ...data };
+                console.log('📂 Datos locales cargados:', this.sheetsData.bets.length + ' apuestas');
             }
         } catch (error) {
-            console.error('Error loading local data:', error);
+            console.error('Error cargando datos locales:', error);
         }
     }
 
@@ -967,48 +1235,19 @@ class F1CupApp {
         try {
             localStorage.setItem('f1_2026_cup_data', JSON.stringify(this.sheetsData));
         } catch (error) {
-            console.error('Error saving local data:', error);
+            console.error('Error guardando datos locales:', error);
         }
-    }
-
-    async loadSheetsData() {
-        try {
-            // Simular carga desde Google Sheets
-            // En una implementación real, usarías la API de Google Sheets
-            
-            // Por ahora, usamos datos de ejemplo
-            this.sheetsData = {
-                bets: [],
-                results: [],
-                seasonBets: [],
-                points: { Varo: 0, Cía: 0 }
-            };
-            
-            this.state.dataLoaded = true;
-            
-        } catch (error) {
-            console.error('Error loading sheets data:', error);
-            this.showError('Error al cargar datos');
-        }
-    }
-
-    async saveToSheets(sheetName, data) {
-        // Simular guardado en Google Sheets
-        // En una implementación real, usarías la API de Google Sheets
-        
-        console.log(`Simulating save to ${sheetName}:`, data);
-        
-        // Simular retardo de red
-        await new Promise(resolve => setTimeout(resolve, 500));
-        
-        return { success: true };
     }
 
     async refreshData() {
         try {
-            await this.loadSheetsData();
-            this.updateUI();
-            this.showSuccess('Datos Actualizados', 'Los datos se han refrescado correctamente');
+            if (this.sheetsService) {
+                this.sheetsService.clearCache();
+            }
+            
+            await this.loadFromGoogleSheets();
+            this.showSuccess('Datos Actualizados', 'Los datos se han refrescado desde Google Sheets');
+            
         } catch (error) {
             this.showError('Error al refrescar datos');
         }
@@ -1016,54 +1255,106 @@ class F1CupApp {
 
     // UI Helpers
     showSuccess(title, message) {
-        document.getElementById('modal-title').textContent = title;
-        document.getElementById('modal-message').innerHTML = message;
-        document.getElementById('modal-success').style.display = 'flex';
-    }
-
-    showError(message) {
-        document.getElementById('error-message').textContent = message;
-        document.getElementById('modal-error').style.display = 'flex';
-    }
-
-    // Firebase integration (opcional)
-    setupFirebase() {
-        if (window.firebaseApp) {
-            try {
-                this.db = firebase.database();
-                this.setupFirebaseListeners();
-            } catch (error) {
-                console.error('Error setting up Firebase:', error);
-            }
+        const modal = document.getElementById('modal-success');
+        const titleEl = document.getElementById('modal-title');
+        const messageEl = document.getElementById('modal-message');
+        
+        if (modal && titleEl && messageEl) {
+            titleEl.textContent = title;
+            messageEl.innerHTML = message;
+            modal.style.display = 'flex';
+        } else {
+            // Fallback si no existe el modal
+            alert(`${title}: ${message.replace(/<br>/g, '\n').replace(/<[^>]*>/g, '')}`);
         }
     }
 
-    setupFirebaseListeners() {
-        if (!this.db) return;
+    showError(message) {
+        const modal = document.getElementById('modal-error');
+        const messageEl = document.getElementById('error-message');
         
-        // Escuchar cambios en apuestas
-        this.db.ref('bets').on('value', (snapshot) => {
-            const data = snapshot.val();
-            if (data) {
-                this.sheetsData.bets = Object.values(data);
-                this.saveLocalData();
-            }
-        });
+        if (modal && messageEl) {
+            messageEl.textContent = message;
+            modal.style.display = 'flex';
+        } else {
+            alert(`Error: ${message}`);
+        }
+    }
+
+    showNotification(message, type = 'info') {
+        // Crear elemento de notificación si no existe
+        let notification = document.querySelector('.notification');
+        if (!notification) {
+            notification = document.createElement('div');
+            notification.className = 'notification';
+            document.body.appendChild(notification);
+        }
         
-        // Escuchar cambios en resultados
-        this.db.ref('results').on('value', (snapshot) => {
-            const data = snapshot.val();
-            if (data) {
-                this.sheetsData.results = Object.values(data);
-                this.saveLocalData();
-                this.loadLastRace();
-                this.calculatePoints();
+        notification.className = `notification notification-${type}`;
+        notification.innerHTML = `
+            <div class="notification-content">
+                <i class="fas fa-${type === 'success' ? 'check-circle' : 
+                                  type === 'error' ? 'exclamation-circle' : 
+                                  type === 'warning' ? 'exclamation-triangle' : 
+                                  'info-circle'}"></i>
+                <span>${message}</span>
+            </div>
+        `;
+        
+        // Mostrar
+        setTimeout(() => notification.classList.add('show'), 10);
+        
+        // Auto-ocultar después de 3 segundos
+        setTimeout(() => {
+            notification.classList.remove('show');
+            setTimeout(() => {
+                if (notification.parentNode) {
+                    notification.parentNode.removeChild(notification);
+                }
+            }, 300);
+        }, 3000);
+    }
+
+    showLoadingIndicator(show) {
+        const indicator = document.getElementById('loading-indicator');
+        if (!indicator) {
+            // Crear indicador si no existe
+            if (show) {
+                const newIndicator = document.createElement('div');
+                newIndicator.id = 'loading-indicator';
+                newIndicator.className = 'loading-indicator';
+                newIndicator.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Cargando...';
+                document.body.appendChild(newIndicator);
             }
-        });
+        } else {
+            indicator.style.display = show ? 'flex' : 'none';
+        }
     }
 }
 
 // Inicializar la app cuando se cargue la página
-window.addEventListener('DOMContentLoaded', () => {
+document.addEventListener('DOMContentLoaded', () => {
+    // Verificar si estamos en GitHub Pages
+    const isGitHubPages = window.location.hostname.includes('github.io');
+    console.log(`🚀 Iniciando F1 2026 Cup v1.0.0`);
+    console.log(`📍 Host: ${window.location.hostname}`);
+    console.log(`🌐 GitHub Pages: ${isGitHubPages}`);
+    
+    // Crear instancia de la app
     window.f1App = new F1CupApp();
+    
+    // Manejar parámetros de URL (para compartir datos)
+    const urlParams = new URLSearchParams(window.location.search);
+    if (urlParams.has('data')) {
+        try {
+            const sharedData = JSON.parse(atob(urlParams.get('data')));
+            console.log('📨 Datos compartidos recibidos');
+            // Aquí podrías implementar lógica para importar datos compartidos
+        } catch (error) {
+            console.error('Error procesando datos compartidos:', error);
+        }
+    }
 });
+
+// Exportar para uso global
+window.F1CupApp = F1CupApp;
