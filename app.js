@@ -26,6 +26,13 @@ class F1CupApp {
         // Datos estáticos
         this.data = {
             circuits: {
+                // Dentro de this.data.circuits
+                "TEST Barcelona (26-30 Ene)": { 
+                    nombre: "Circuit de Barcelona-Catalunya - Shakedown", 
+                    bandera: "./assets/circuitos/es.png", 
+                    mapa: "./assets/circuitos/barcelona.png",
+                    fecha: "26-30 Enero"
+                },
                 "TEST Bahrein (11-13 Feb)": { 
                     nombre: "Sakhir - Preseason Testing", 
                     bandera: "./assets/circuitos/bh.png", 
