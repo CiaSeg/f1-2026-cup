@@ -772,7 +772,7 @@ class F1CupApp {
                 this.loadAdminPanel();
                 break;
             case 'history':
-                this.loadHistoryTab(); // Cambiado de loadLastNumberTab a loadHistoryTab
+                this.loadHistoryTab(); // Cambiado de loadTab a loadHistoryTab
                 break;
         }
     }
@@ -930,7 +930,7 @@ class F1CupApp {
     // ==================== PESTAÑA HISTORIAL (reemplaza última número) ====================
     
    loadHistoryTab() {
-    const tabContent = document.getElementById('tab-lastNumber'); // Cambiado a lastNumber para coincidir con tu HTML
+    const tabContent = document.getElementById('tab-history'); 
     if (!tabContent) return;
 
     const desglose = {
@@ -1389,7 +1389,7 @@ class F1CupApp {
         
         if (this.state.currentTab === 'points') this.loadPointsTab();
         if (this.state.currentTab === 'season') this.loadSeasonTab();
-        if (this.state.currentTab === 'lastNumber') this.loadHistoryTab();
+        if (this.state.currentTab === 'history') this.loadHistoryTab();
         if (this.state.currentTab === 'admin') this.loadAdminPanel();
         
         this.showNotification('✅ Datos actualizados', 'success');
