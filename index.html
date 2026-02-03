@@ -6,121 +6,240 @@
     <title>F1 2026 Cup</title>
     <link rel="stylesheet" href="style.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <!-- REMOVER LOS SCRIPT DE ABAJO Y DEJAR SOLO ESTE -->
-    <script src="app.js" defer></script>
+    <link rel="manifest" href="manifest.json">
+    <link rel="icon" type="image/png" href="./assets/icon-192.png">
+    <meta name="theme-color" content="#e10600">
 </head>
 <body>
+    <!-- Pantalla de carga -->
     <div id="loading" class="loading-screen">
         <h1>F1 <span>2026</span></h1>
         <p>CARGANDO BOXES...</p>
+        <div class="loading-bar">
+            <div class="loading-progress"></div>
+        </div>
     </div>
 
+    <!-- Aplicación principal -->
     <div id="app" class="app-container" style="display: none;">
+        <!-- Página de inicio (Landing) -->
         <div id="landing-page" class="page active">
-            <h1>F1 <span>2026</span></h1>
-            <h3 class="text-center">COUPLE CUP</h3>
-            <div class="landing-card">
-                <p class="sub-text">SELECCIONA PILOTO</p>
-                <div class="player-buttons">
-                    <button id="btn-varo" class="player-btn varo-btn">VARO</button>
-                    <button id="btn-cia" class="player-btn cia-btn">CÍA</button>
+            <div class="landing-content">
+                <h1>F1 <span>2026</span></h1>
+                <h3>COUPLE CUP</h3>
+                <div class="landing-card">
+                    <p class="sub-text">SELECCIONA PILOTO</p>
+                    <div class="player-buttons">
+                        <button id="btn-varo" class="player-btn varo-btn">
+                            <i class="fas fa-helmet-safety"></i>
+                            VARO
+                        </button>
+                        <button id="btn-cia" class="player-btn cia-btn">
+                            <i class="fas fa-flag-checkered"></i>
+                            CÍA
+                        </button>
+                    </div>
+                    <div class="season-info">
+                        <p><i class="fas fa-calendar-alt"></i> TEMPORADA 2026</p>
+                        <p><i class="fas fa-trophy"></i> 24 GRANDES PREMIOS</p>
+                    </div>
                 </div>
             </div>
         </div>
 
+        <!-- Página principal de la app -->
         <div id="main-page" class="page">
+            <!-- Header -->
             <header class="app-header">
-                <button id="btn-back" class="back-btn"><i class="fas fa-arrow-left"></i></button>
-                <h2 id="current-user"></h2>
-                <button id="btn-refresh" class="refresh-btn"><i class="fas fa-redo"></i></button>
+                <button id="btn-back" class="back-btn">
+                    <i class="fas fa-arrow-left"></i>
+                </button>
+                <h2 id="current-user">VARO</h2>
+                <div class="header-actions">
+                    <button id="btn-admin" class="admin-btn" style="display:none">
+                        <i class="fas fa-cog"></i>
+                    </button>
+                    <button id="btn-refresh" class="refresh-btn">
+                        <i class="fas fa-redo"></i>
+                    </button>
+                </div>
             </header>
 
+            <!-- Tabs de navegación -->
             <div class="tabs">
-                <button class="tab-btn active" data-tab="race">CARRERA</button>
-                <button class="tab-btn" data-tab="season">MUNDIAL</button>
-                <button class="tab-btn" data-tab="points">PUNTOS</button>
+                <button class="tab-btn active" data-tab="race">
+                    <i class="fas fa-flag-checkered"></i>
+                    <span>CARRERA</span>
+                </button>
+                <button class="tab-btn" data-tab="season">
+                    <i class="fas fa-trophy"></i>
+                    <span>MUNDIAL</span>
+                </button>
+                <button class="tab-btn" data-tab="points">
+                    <i class="fas fa-chart-line"></i>
+                    <span>PUNTOS</span>
+                </button>
+                <button class="tab-btn" data-tab="lastNumber">
+                    <i class="fas fa-hashtag"></i>
+                    <span>ÚLTIMO Nº</span>
+                </button>
+                <button class="tab-btn" data-tab="admin" style="display:none">
+                    <i class="fas fa-cog"></i>
+                    <span>ADMIN</span>
+                </button>
             </div>
 
+            <!-- Contenido de las tabs -->
             <div class="tab-content">
                 <!-- TAB CARRERA -->
                 <div id="tab-race" class="tab-pane active">
-                    <!-- Carrera Anterior -->
-                    <div id="last-race-card" class="mobile-card hidden">
-                        <p class="sub-text">🏁 CARRERA ANTERIOR</p>
-                        <h3 id="last-race-name" class="mb-20"></h3>
-                        <div class="last-race-content">
+                    <!-- Última apuesta del usuario -->
+                    <div id="last-bet-card" class="mobile-card" style="display:none">
+                        <p class="sub-text">📝 TU ÚLTIMA APUESTA</p>
+                        <h3 id="last-bet-race"></h3>
+                        <div class="last-bet-content">
                             <div class="podium-item">
-                                <img id="last-p2-img" src="" class="driver-img" alt="2nd">
+                                <div class="driver-image-container">
+                                    <img id="last-bet-p2-img" src="" class="driver-img" alt="2º">
+                                </div>
                                 <span class="sub-text">2º</span>
                             </div>
                             <div class="podium-item">
-                                <img id="last-p1-img" src="" class="driver-img" alt="1st">
+                                <div class="driver-image-container">
+                                    <img id="last-bet-p1-img" src="" class="driver-img" alt="1º">
+                                </div>
                                 <span class="sub-text">1º</span>
                             </div>
                             <div class="podium-item">
-                                <img id="last-p3-img" src="" class="driver-img" alt="3rd">
+                                <div class="driver-image-container">
+                                    <img id="last-bet-p3-img" src="" class="driver-img" alt="3º">
+                                </div>
                                 <span class="sub-text">3º</span>
                             </div>
                         </div>
                     </div>
 
-                    <!-- Próximo GP -->
+                    <!-- Información del próximo GP -->
                     <div class="mobile-card">
                         <p class="sub-text">📅 PRÓXIMO GP</p>
                         <select id="gp-select" class="gp-select"></select>
-                        <div class="circuit-header">
-                            <img id="circuit-flag" src="" class="flag-img" alt="Bandera">
-                            <h4 id="circuit-name"></h4>
+                        <div class="circuit-info">
+                            <div class="circuit-header">
+                                <img id="circuit-flag" src="" class="flag-img" alt="Bandera">
+                                <div>
+                                    <h4 id="circuit-name"></h4>
+                                    <p id="circuit-fecha" class="circuit-date"></p>
+                                </div>
+                            </div>
+                            <img id="circuit-map" src="" class="map-img" alt="Mapa del circuito">
                         </div>
-                        <img id="circuit-map" src="" class="map-img" alt="Mapa del circuito">
                     </div>
 
-                    <!-- Tus Apuestas -->
+                    <!-- Formulario de apuestas -->
                     <div class="mobile-card">
-                        <p class="sub-text">🎯 TUS APUESTAS</p>
-                        <div class="podium-builder mt-20">
-                            <div class="form-group">
-                                <label class="form-label">1er Lugar</label>
-                                <select id="p1-select" class="form-select">
-                                    <option value="">Selecciona piloto</option>
-                                </select>
+                        <p class="sub-text">🎯 TU APUESTA</p>
+                        <div class="podium-builder">
+                            <div class="podium-item">
+                                <div class="driver-image-container">
+                                    <img id="p1-img" src="" class="driver-img" alt="1º" style="display:none">
+                                </div>
+                                <div class="form-group">
+                                    <label class="form-label">1er LUGAR</label>
+                                    <select id="p1-select" class="form-select">
+                                        <option value="">Selecciona piloto</option>
+                                    </select>
+                                </div>
                             </div>
-                            <div class="form-group">
-                                <label class="form-label">2do Lugar</label>
-                                <select id="p2-select" class="form-select">
-                                    <option value="">Selecciona piloto</option>
-                                </select>
+                            
+                            <div class="podium-item">
+                                <div class="driver-image-container">
+                                    <img id="p2-img" src="" class="driver-img" alt="2º" style="display:none">
+                                </div>
+                                <div class="form-group">
+                                    <label class="form-label">2do LUGAR</label>
+                                    <select id="p2-select" class="form-select">
+                                        <option value="">Selecciona piloto</option>
+                                    </select>
+                                </div>
                             </div>
-                            <div class="form-group">
-                                <label class="form-label">3er Lugar</label>
-                                <select id="p3-select" class="form-select">
-                                    <option value="">Selecciona piloto</option>
-                                </select>
+                            
+                            <div class="podium-item">
+                                <div class="driver-image-container">
+                                    <img id="p3-img" src="" class="driver-img" alt="3º" style="display:none">
+                                </div>
+                                <div class="form-group">
+                                    <label class="form-label">3er LUGAR</label>
+                                    <select id="p3-select" class="form-select">
+                                        <option value="">Selecciona piloto</option>
+                                    </select>
+                                </div>
                             </div>
+                            
                             <button id="btn-save-bet" class="btn btn-primary w-100 mt-20">
                                 <i class="fas fa-save"></i> GUARDAR APUESTA
                             </button>
+                        </div>
+                    </div>
+
+                    <!-- Estado de la carrera -->
+                    <div class="mobile-card">
+                        <p class="sub-text">🏁 ESTADO DE LA CARRERA</p>
+                        <div class="race-status">
+                            <div class="status-item">
+                                <i class="fas fa-clock status-icon pending"></i>
+                                <div>
+                                    <h4>APUESTAS ABIERTAS</h4>
+                                    <p>Hasta el inicio de la carrera</p>
+                                </div>
+                            </div>
+                            <div class="status-item">
+                                <i class="fas fa-check-circle status-icon completed"></i>
+                                <div>
+                                    <h4>RESULTADOS</h4>
+                                    <p>Disponibles después de la carrera</p>
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </div>
 
                 <!-- TAB MUNDIAL -->
                 <div id="tab-season" class="tab-pane">
-                    <div class="mobile-card">
-                        <p class="sub-text">🏆 APUESTAS MUNDIALES</p>
-                        <!-- Contenido de apuestas mundiales -->
-                    </div>
+                    <!-- Contenido cargado dinámicamente -->
                 </div>
 
                 <!-- TAB PUNTOS -->
                 <div id="tab-points" class="tab-pane">
-                    <div class="mobile-card">
-                        <p class="sub-text">📊 CLASIFICACIÓN</p>
-                        <!-- Tabla de puntos -->
-                    </div>
+                    <!-- Contenido cargado dinámicamente -->
+                </div>
+
+                <!-- TAB ÚLTIMO NÚMERO -->
+                <div id="tab-lastNumber" class="tab-pane">
+                    <!-- Contenido cargado dinámicamente -->
+                </div>
+
+                <!-- TAB ADMIN -->
+                <div id="tab-admin" class="tab-pane">
+                    <!-- Contenido cargado dinámicamente -->
                 </div>
             </div>
         </div>
     </div>
+
+    <!-- Scripts -->
+    <script src="app.js"></script>
+    
+    <!-- Service Worker para PWA -->
+    <script>
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.register('service-worker.js')
+                .then(registration => {
+                    console.log('✅ Service Worker registrado:', registration);
+                })
+                .catch(error => {
+                    console.log('❌ Error registrando Service Worker:', error);
+                });
+        }
+    </script>
 </body>
 </html>

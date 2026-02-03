@@ -1,16 +1,24 @@
-// app.js - VERSIÓN COMPLETA Y CORREGIDA
+// app.js - VERSIÓN COMPLETA CON GOOGLE SHEETS ONLINE
 class F1CupApp {
     constructor() {
+        // Configuración de Google Sheets
+        this.sheetId = "1MH-qdPD-urFE5zO-_14nPZw54nTr1zTiGV3hpBHpwbw";
+        this.apiKey = "AIzaSyCoUGiDREyQNzMWggWKD9D_k6qA-FEk4go";
+        
         this.state = {
             currentUser: localStorage.getItem('f1_user') || 'Varo',
             currentPage: 'landing',
             currentTab: 'race',
             selectedGP: 0,
             selectedPodium: ['', '', ''],
+            selectedConstructors: ['', '', ''],
             seasonBet: null,
-            isAdmin: false,
+            isAdmin: localStorage.getItem('f1_admin') === 'true',
             dataLoaded: false,
-            lastRaceData: null
+            lastUserBet: null,
+            userBetData: {},
+            gpResults: {}, // Almacena resultados de 22 pilotos por GP
+            waitingForResults: [] // GPs que esperan resultados
         };
 
         this.data = {
@@ -18,122 +26,146 @@ class F1CupApp {
                 "GP Australia (06-08 Mar)": { 
                     nombre: "Albert Park", 
                     bandera: "./assets/circuitos/au.png", 
-                    mapa: "./assets/circuitos/australia.png" 
+                    mapa: "./assets/circuitos/australia.png",
+                    fecha: "06-08 Mar"
                 },
                 "GP China (13-15 Mar)": { 
                     nombre: "Shanghai", 
                     bandera: "./assets/circuitos/cn.png", 
-                    mapa: "./assets/circuitos/china.png" 
+                    mapa: "./assets/circuitos/china.png",
+                    fecha: "13-15 Mar"
                 },
                 "GP Japón (27-29 Mar)": { 
                     nombre: "Suzuka", 
                     bandera: "./assets/circuitos/jp.png", 
-                    mapa: "./assets/circuitos/japan.png" 
+                    mapa: "./assets/circuitos/japan.png",
+                    fecha: "27-29 Mar"
                 },
                 "GP Bahrein (10-12 Apr)": { 
                     nombre: "Bahrain Int.", 
                     bandera: "./assets/circuitos/bh.png", 
-                    mapa: "./assets/circuitos/bahrain.png" 
+                    mapa: "./assets/circuitos/bahrain.png",
+                    fecha: "10-12 Apr"
                 },
                 "GP Arabia Saudí (17-19 Apr)": { 
                     nombre: "Jeddah", 
                     bandera: "./assets/circuitos/sa.png", 
-                    mapa: "./assets/circuitos/saudi.png" 
+                    mapa: "./assets/circuitos/saudi.png",
+                    fecha: "17-19 Apr"
                 },
                 "GP Miami (01-03 May)": { 
                     nombre: "Miami", 
                     bandera: "./assets/circuitos/us.png", 
-                    mapa: "./assets/circuitos/miami.png" 
+                    mapa: "./assets/circuitos/miami.png",
+                    fecha: "01-03 May"
                 },
                 "GP Canadá (22-24 May)": { 
                     nombre: "Gilles-Villeneuve", 
                     bandera: "./assets/circuitos/ca.png", 
-                    mapa: "./assets/circuitos/canada.png" 
+                    mapa: "./assets/circuitos/canada.png",
+                    fecha: "22-24 May"
                 },
                 "GP Mónaco (05-07 Jun)": { 
                     nombre: "Monaco", 
                     bandera: "./assets/circuitos/mc.png", 
-                    mapa: "./assets/circuitos/monaco.png" 
+                    mapa: "./assets/circuitos/monaco.png",
+                    fecha: "05-07 Jun"
                 },
                 "GP Barcelona (12-14 Jun)": { 
                     nombre: "Catalunya", 
                     bandera: "./assets/circuitos/es.png", 
-                    mapa: "./assets/circuitos/barcelona.png" 
+                    mapa: "./assets/circuitos/barcelona.png",
+                    fecha: "12-14 Jun"
                 },
                 "GP Austria (26-28 Jun)": { 
                     nombre: "Red Bull Ring", 
                     bandera: "./assets/circuitos/at.png", 
-                    mapa: "./assets/circuitos/austria.png" 
+                    mapa: "./assets/circuitos/austria.png",
+                    fecha: "26-28 Jun"
                 },
                 "GP Gran Bretaña (03-05 Jul)": { 
                     nombre: "Silverstone", 
                     bandera: "./assets/circuitos/gb.png", 
-                    mapa: "./assets/circuitos/britain.png" 
+                    mapa: "./assets/circuitos/britain.png",
+                    fecha: "03-05 Jul"
                 },
                 "GP Bélgica (17-19 Jul)": { 
                     nombre: "Spa", 
                     bandera: "./assets/circuitos/be.png", 
-                    mapa: "./assets/circuitos/belgium.png" 
+                    mapa: "./assets/circuitos/belgium.png",
+                    fecha: "17-19 Jul"
                 },
                 "GP Hungría (24-26 Jul)": { 
                     nombre: "Hungaroring", 
                     bandera: "./assets/circuitos/hu.png", 
-                    mapa: "./assets/circuitos/hungary.png" 
+                    mapa: "./assets/circuitos/hungary.png",
+                    fecha: "24-26 Jul"
                 },
                 "GP Países Bajos (21-23 Aug)": { 
                     nombre: "Zandvoort", 
                     bandera: "./assets/circuitos/nl.png", 
-                    mapa: "./assets/circuitos/dutch.png" 
+                    mapa: "./assets/circuitos/dutch.png",
+                    fecha: "21-23 Aug"
                 },
                 "GP Italia (04-06 Sep)": { 
                     nombre: "Monza", 
                     bandera: "./assets/circuitos/it.png", 
-                    mapa: "./assets/circuitos/italy.png" 
+                    mapa: "./assets/circuitos/italy.png",
+                    fecha: "04-06 Sep"
                 },
                 "GP España - Madrid (11-13 Sep)": { 
                     nombre: "IFEMA Madrid", 
                     bandera: "./assets/circuitos/es.png", 
-                    mapa: "./assets/circuitos/madrid.png" 
+                    mapa: "./assets/circuitos/madrid.png",
+                    fecha: "11-13 Sep"
                 },
                 "GP Azerbaiyán (24-26 Sep)": { 
                     nombre: "Baku", 
                     bandera: "./assets/circuitos/az.png", 
-                    mapa: "./assets/circuitos/baku.png" 
+                    mapa: "./assets/circuitos/baku.png",
+                    fecha: "24-26 Sep"
                 },
                 "GP Singapur (09-11 Oct)": { 
                     nombre: "Marina Bay", 
                     bandera: "./assets/circuitos/sg.png", 
-                    mapa: "./assets/circuitos/singapore.png" 
+                    mapa: "./assets/circuitos/singapore.png",
+                    fecha: "09-11 Oct"
                 },
                 "GP Austin USA (23-25 Oct)": { 
                     nombre: "COTA", 
                     bandera: "./assets/circuitos/us.png", 
-                    mapa: "./assets/circuitos/austin.png" 
+                    mapa: "./assets/circuitos/austin.png",
+                    fecha: "23-25 Oct"
                 },
                 "GP México (30 Oct - 01 Nov)": { 
                     nombre: "Hermanos Rodríguez", 
                     bandera: "./assets/circuitos/mx.png", 
-                    mapa: "./assets/circuitos/mexico.png" 
+                    mapa: "./assets/circuitos/mexico.png",
+                    fecha: "30 Oct - 01 Nov"
                 },
                 "GP Brasil (06-08 Nov)": { 
                     nombre: "Interlagos", 
                     bandera: "./assets/circuitos/br.png", 
-                    mapa: "./assets/circuitos/brazil.png" 
+                    mapa: "./assets/circuitos/brazil.png",
+                    fecha: "06-08 Nov"
                 },
                 "GP Las Vegas (19-21 Nov)": { 
                     nombre: "Las Vegas", 
                     bandera: "./assets/circuitos/us.png", 
-                    mapa: "./assets/circuitos/vegas.png" 
+                    mapa: "./assets/circuitos/vegas.png",
+                    fecha: "19-21 Nov"
                 },
                 "GP Qatar (27-29 Nov)": { 
                     nombre: "Lusail", 
                     bandera: "./assets/circuitos/qa.png", 
-                    mapa: "./assets/circuitos/qatar.png" 
+                    mapa: "./assets/circuitos/qatar.png",
+                    fecha: "27-29 Nov"
                 },
                 "GP Abu Dhabi (04-06 Dec)": { 
                     nombre: "Yas Marina", 
                     bandera: "./assets/circuitos/ae.png", 
-                    mapa: "./assets/circuitos/abudhabi.png" 
+                    mapa: "./assets/circuitos/abudhabi.png",
+                    fecha: "04-06 Dec"
                 }
             },
             drivers: {
@@ -159,69 +191,163 @@ class F1CupApp {
                 "Sainz": { foto: "./assets/pilotos/sainz.png", equipo: "Williams" },
                 "Stroll": { foto: "./assets/pilotos/stroll.png", equipo: "Aston Martin" },
                 "Verstappen": { foto: "./assets/pilotos/verstappen.png", equipo: "Red Bull" }
-            }
-        };
-
-        // Datos de ejemplo para pruebas (sin Google Sheets)
-        this.sheetsData = {
-            bets: [
-                {
-                    Carrera: "GP Australia (06-08 Mar)",
-                    Jugador: "Varo",
-                    P1: "Verstappen",
-                    P2: "Hamilton",
-                    P3: "Norris"
-                },
-                {
-                    Carrera: "GP Australia (06-08 Mar)",
-                    Jugador: "Cía",
-                    P1: "Leclerc",
-                    P2: "Verstappen",
-                    P3: "Piastri"
-                }
-            ],
-            results: [
-                {
-                    Carrera: "GP Australia (06-08 Mar)",
-                    P1_Real: "Verstappen",
-                    P2_Real: "Leclerc",
-                    P3_Real: "Piastri"
-                }
-            ],
-            seasonBets: [],
-            points: { Varo: 0, Cía: 0 }
+            },
+            constructors: [
+                "Ferrari", "Mercedes", "Red Bull", "McLaren", 
+                "Aston Martin", "Alpine", "Williams", "Haas",
+                "Audi", "Cadillac", "Racing Bulls"
+            ]
         };
 
         this.circuitsList = Object.keys(this.data.circuits);
         this.driversList = Object.keys(this.data.drivers).sort();
         
+        // Datos en memoria
+        this.sheetsData = {
+            bets: [],
+            results: [],
+            seasonBets: [],
+            points: { Varo: 0, Cía: 0 },
+            lastNumberResults: {}
+        };
+        
         this.init();
     }
 
-    init() {
+    async init() {
         console.log('🚀 Iniciando F1 Cup App...');
         
-        // Ocultar loading después de 1.5 segundos
+        // Cargar datos de Google Sheets
+        await this.loadAllData();
+        
+        // Ocultar loading
         setTimeout(() => {
             const loading = document.getElementById('loading');
             const app = document.getElementById('app');
             
-            if (loading) {
-                loading.style.display = 'none';
-            }
-            
-            if (app) {
-                app.style.display = 'flex';
-                app.style.flexDirection = 'column';
-            }
+            if (loading) loading.style.display = 'none';
+            if (app) app.style.display = 'block';
             
             this.setupEventListeners();
             this.updateUI();
+            this.scrollToTop();
             
-            // Cargar datos iniciales
-            this.loadInitialData();
+        }, 1000);
+    }
+
+    async loadAllData() {
+        try {
+            console.log('📥 Cargando datos de Google Sheets...');
             
-        }, 1500);
+            // Cargar apuestas
+            this.sheetsData.bets = await this.fetchGoogleSheet('Apuestas!A:F');
+            
+            // Cargar resultados
+            this.sheetsData.results = await this.fetchGoogleSheet('Resultados!A:W'); // A-W para 22 pilotos + carrera
+            
+            // Cargar apuestas mundiales
+            this.sheetsData.seasonBets = await this.fetchGoogleSheet('Mundial!A:H');
+            
+            // Procesar resultados de 22 pilotos
+            this.processGPResults();
+            
+            // Cargar últimos números
+            this.sheetsData.lastNumberResults = await this.fetchGoogleSheet('UltimoNumero!A:C');
+            
+            console.log('✅ Datos cargados:', {
+                bets: this.sheetsData.bets.length,
+                results: this.sheetsData.results.length,
+                seasonBets: this.sheetsData.seasonBets.length
+            });
+            
+            this.state.dataLoaded = true;
+            
+        } catch (error) {
+            console.error('❌ Error cargando datos:', error);
+            this.showNotification('⚠️ Error cargando datos. Usando datos locales.', 'error');
+        }
+    }
+
+    async fetchGoogleSheet(range) {
+        try {
+            const url = `https://sheets.googleapis.com/v4/spreadsheets/${this.sheetId}/values/${range}?key=${this.apiKey}`;
+            const response = await fetch(url);
+            
+            if (!response.ok) {
+                throw new Error(`Error ${response.status}: ${response.statusText}`);
+            }
+            
+            const data = await response.json();
+            
+            if (!data.values || data.values.length === 0) {
+                return [];
+            }
+            
+            // Convertir a objetos
+            const headers = data.values[0];
+            const rows = data.values.slice(1);
+            
+            return rows.map(row => {
+                const obj = {};
+                headers.forEach((header, index) => {
+                    obj[header] = row[index] || '';
+                });
+                return obj;
+            });
+            
+        } catch (error) {
+            console.error('❌ Error fetching Google Sheet:', error);
+            return [];
+        }
+    }
+
+    async saveToGoogleSheet(sheetName, rowData) {
+        try {
+            const url = `https://sheets.googleapis.com/v4/spreadsheets/${this.sheetId}/values/${sheetName}!A:Z:append?valueInputOption=USER_ENTERED&key=${this.apiKey}`;
+            
+            const response = await fetch(url, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    values: [rowData]
+                })
+            });
+            
+            if (!response.ok) {
+                throw new Error('Error guardando en Google Sheets');
+            }
+            
+            return true;
+        } catch (error) {
+            console.error('❌ Error guardando en Google Sheets:', error);
+            return false;
+        }
+    }
+
+    processGPResults() {
+        // Procesar resultados de 22 pilotos por GP
+        this.sheetsData.results.forEach(result => {
+            const carrera = result.Carrera;
+            if (!this.state.gpResults[carrera]) {
+                this.state.gpResults[carrera] = {};
+            }
+            
+            // Mapear posiciones P1-P22
+            for (let i = 1; i <= 22; i++) {
+                const posKey = `P${i}`;
+                if (result[posKey]) {
+                    this.state.gpResults[carrera][i] = result[posKey];
+                }
+            }
+        });
+    }
+
+    scrollToTop() {
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+        document.documentElement.scrollTop = 0;
+        document.body.scrollTop = 0;
     }
 
     setupEventListeners() {
@@ -234,32 +360,19 @@ class F1CupApp {
         const btnRefresh = document.getElementById('btn-refresh');
         const btnSaveBet = document.getElementById('btn-save-bet');
 
-        if (btnVaro) {
-            btnVaro.onclick = () => this.selectUser('Varo');
-        }
-
-        if (btnCia) {
-            btnCia.onclick = () => this.selectUser('Cía');
-        }
-
-        if (btnBack) {
-            btnBack.onclick = () => this.goToLanding();
-        }
-
-        if (btnRefresh) {
-            btnRefresh.onclick = () => this.refreshData();
-        }
-
-        if (btnSaveBet) {
-            btnSaveBet.onclick = () => this.saveCurrentBet();
-        }
+        if (btnVaro) btnVaro.onclick = () => this.selectUser('Varo');
+        if (btnCia) btnCia.onclick = () => this.selectUser('Cía');
+        if (btnBack) btnBack.onclick = () => this.goToLanding();
+        if (btnRefresh) btnRefresh.onclick = () => this.refreshData();
+        if (btnSaveBet) btnSaveBet.onclick = () => this.saveCurrentBet();
 
         // Tabs
         document.querySelectorAll('.tab-btn').forEach(btn => {
             btn.onclick = (e) => {
-                const tab = e.target.dataset.tab || e.target.closest('.tab-btn').dataset.tab;
+                const tab = e.target.dataset.tab;
                 if (tab) {
                     this.switchTab(tab);
+                    this.scrollToTop();
                 }
             };
         });
@@ -271,17 +384,26 @@ class F1CupApp {
                 this.state.selectedGP = parseInt(e.target.value);
                 this.updateCircuitInfo();
                 this.loadUserBetForCurrentGP();
+                this.scrollToTop();
             };
         }
 
         // Selectores de podio
-        const p1Select = document.getElementById('p1-select');
-        const p2Select = document.getElementById('p2-select');
-        const p3Select = document.getElementById('p3-select');
+        ['p1', 'p2', 'p3'].forEach((pos, index) => {
+            const select = document.getElementById(`${pos}-select`);
+            if (select) {
+                select.onchange = (e) => {
+                    this.updatePodiumSelection(index, e.target.value);
+                    this.updateDriverImage(`${pos}-img`, e.target.value);
+                };
+            }
+        });
 
-        if (p1Select) p1Select.onchange = (e) => this.updatePodiumSelection(0, e.target.value);
-        if (p2Select) p2Select.onchange = (e) => this.updatePodiumSelection(1, e.target.value);
-        if (p3Select) p3Select.onchange = (e) => this.updatePodiumSelection(2, e.target.value);
+        // Botón admin
+        const btnAdmin = document.getElementById('btn-admin');
+        if (btnAdmin) {
+            btnAdmin.onclick = () => this.toggleAdminMode();
+        }
     }
 
     selectUser(user) {
@@ -293,13 +415,14 @@ class F1CupApp {
         const display = document.getElementById('current-user');
         if (display) {
             display.textContent = user.toUpperCase();
-            display.style.color = (user === 'Varo') ? '#e10600' : '#ffffff';
         }
 
         this.state.currentPage = 'main';
         this.updateUI();
+        this.scrollToTop();
         
-        // Cargar apuestas del usuario
+        // Cargar última apuesta del usuario
+        this.loadLastUserBet();
         this.loadUserBetForCurrentGP();
     }
 
@@ -307,41 +430,25 @@ class F1CupApp {
         console.log('🔙 Volviendo a landing page');
         this.state.currentPage = 'landing';
         this.updateUI();
-    }
-
-    switchTab(tab) {
-        console.log(`📁 Cambiando a pestaña: ${tab}`);
-        
-        this.state.currentTab = tab;
-        
-        // Actualizar botones de tabs
-        document.querySelectorAll('.tab-btn').forEach(btn => {
-            btn.classList.toggle('active', btn.dataset.tab === tab);
-        });
-        
-        // Actualizar contenido de tabs
-        document.querySelectorAll('.tab-pane').forEach(pane => {
-            pane.classList.toggle('active', pane.id === `tab-${tab}`);
-        });
-        
-        // Cargar contenido específico de la pestaña
-        this.loadTabContent(tab);
+        this.scrollToTop();
     }
 
     updateUI() {
         const landing = document.getElementById('landing-page');
         const main = document.getElementById('main-page');
         
-        if (this.state.currentPage === 'landing') {
-            landing.classList.add('active');
-            main.classList.remove('active');
-            document.body.style.background = 'linear-gradient(135deg, #0a0a0f 0%, #15151e 100%)';
-        } else {
-            landing.classList.remove('active');
-            main.classList.add('active');
-            document.body.style.background = 'var(--f1-black)';
-            this.loadMainApp();
+        if (landing && main) {
+            if (this.state.currentPage === 'landing') {
+                landing.style.display = 'flex';
+                main.style.display = 'none';
+            } else {
+                landing.style.display = 'none';
+                main.style.display = 'block';
+                this.loadMainApp();
+            }
         }
+        
+        this.scrollToTop();
     }
 
     loadMainApp() {
@@ -349,10 +456,37 @@ class F1CupApp {
         
         this.loadGPSelector();
         this.updateCircuitInfo();
-        this.loadLastRace();
+        this.loadLastUserBet(); // Cambiado: mostrar última apuesta
         this.loadDriverSelectors();
         this.loadUserBetForCurrentGP();
         this.loadTabContent(this.state.currentTab);
+        
+        // Mostrar/ocultar botón admin
+        this.updateAdminButton();
+    }
+
+    updateAdminButton() {
+        const adminBtn = document.getElementById('btn-admin');
+        if (adminBtn) {
+            adminBtn.style.display = this.state.isAdmin ? 'inline-block' : 'none';
+        }
+        
+        const adminTab = document.querySelector('[data-tab="admin"]');
+        if (adminTab) {
+            adminTab.style.display = this.state.isAdmin ? 'flex' : 'none';
+        }
+    }
+
+    toggleAdminMode() {
+        this.state.isAdmin = !this.state.isAdmin;
+        localStorage.setItem('f1_admin', this.state.isAdmin);
+        this.updateAdminButton();
+        
+        if (this.state.isAdmin) {
+            this.showNotification('🔧 Modo administrador activado', 'success');
+        } else {
+            this.showNotification('👤 Modo usuario activado', 'info');
+        }
     }
 
     loadGPSelector() {
@@ -365,59 +499,32 @@ class F1CupApp {
             const opt = document.createElement('option');
             opt.value = index;
             opt.textContent = circuit;
-            
-            // Marcar como próximo GP (podría ser el primero sin resultado)
-            if (index === 0) {
-                opt.selected = true;
-                this.state.selectedGP = 0;
-            }
-            
             select.appendChild(opt);
         });
+        
+        select.value = this.state.selectedGP;
     }
 
     updateCircuitInfo() {
         const circuitKey = this.circuitsList[this.state.selectedGP];
         const info = this.data.circuits[circuitKey];
         
-        if (!info) {
-            console.error('❌ No se encontró información del circuito');
-            return;
-        }
-        
-        console.log(`🏁 Actualizando info del circuito: ${info.nombre}`);
+        if (!info) return;
         
         const name = document.getElementById('circuit-name');
         const flag = document.getElementById('circuit-flag');
         const map = document.getElementById('circuit-map');
+        const fecha = document.getElementById('circuit-fecha');
         
         if (name) name.textContent = info.nombre;
-        
-        if (flag) {
-            flag.src = info.bandera;
-            flag.alt = `Bandera de ${info.nombre}`;
-            flag.onerror = () => {
-                flag.src = 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="40" height="26" viewBox="0 0 40 26"><rect width="40" height="26" fill="%2338383f"/></svg>';
-            };
-        }
-        
-        if (map) {
-            map.src = info.mapa;
-            map.alt = `Mapa del circuito ${info.nombre}`;
-            map.onerror = () => {
-                map.src = 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="300" height="200" viewBox="0 0 300 200"><rect width="300" height="200" fill="%231a1a24"/><text x="150" y="100" text-anchor="middle" fill="%23949498" font-family="Arial" font-size="16">Mapa no disponible</text></svg>';
-            };
-        }
+        if (flag) flag.src = info.bandera;
+        if (map) map.src = info.mapa;
+        if (fecha) fecha.textContent = info.fecha;
     }
 
     loadDriverSelectors() {
-        const p1Select = document.getElementById('p1-select');
-        const p2Select = document.getElementById('p2-select');
-        const p3Select = document.getElementById('p3-select');
-        
-        const selectors = [p1Select, p2Select, p3Select];
-        
-        selectors.forEach((select, index) => {
+        ['p1', 'p2', 'p3'].forEach(pos => {
+            const select = document.getElementById(`${pos}-select`);
             if (!select) return;
             
             select.innerHTML = '<option value="">Selecciona piloto</option>';
@@ -426,59 +533,64 @@ class F1CupApp {
                 const opt = document.createElement('option');
                 opt.value = driver;
                 opt.textContent = driver;
-                
-                // Añadir emoji del equipo si está disponible
-                const equipo = this.data.drivers[driver]?.equipo;
-                if (equipo) {
-                    opt.textContent = `${driver} (${equipo})`;
-                }
-                
                 select.appendChild(opt);
             });
         });
     }
 
-    loadLastRace() {
-        const card = document.getElementById('last-race-card');
+    updateDriverImage(imgId, driverName) {
+        const img = document.getElementById(imgId);
+        if (!img || !driverName) return;
         
-        if (this.sheetsData.results.length > 0 && card) {
-            const lastResult = this.sheetsData.results[this.sheetsData.results.length - 1];
-            
-            card.classList.remove('hidden');
-            
-            // Nombre de la carrera
-            const raceName = document.getElementById('last-race-name');
-            if (raceName) {
-                raceName.textContent = lastResult.Carrera.split(' (')[0];
-            }
-            
-            // Actualizar imágenes del podio
-            const drivers = [
-                { id: 'last-p1-img', name: lastResult.P1_Real },
-                { id: 'last-p2-img', name: lastResult.P2_Real },
-                { id: 'last-p3-img', name: lastResult.P3_Real }
-            ];
-            
-            drivers.forEach(driver => {
-                const img = document.getElementById(driver.id);
-                if (img && driver.name && this.data.drivers[driver.name]) {
-                    img.src = this.data.drivers[driver.name].foto;
-                    img.alt = driver.name;
-                    img.onerror = () => {
-                        img.src = 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="80" height="80" viewBox="0 0 80 80"><circle cx="40" cy="40" r="38" fill="%231a1a24" stroke="%2338383f" stroke-width="2"/><text x="40" y="45" text-anchor="middle" fill="%23949498" font-family="Arial" font-size="14">' + driver.name.charAt(0) + '</text></svg>';
-                    };
-                }
-            });
-            
-            // Guardar datos para cálculo de puntos
-            this.state.lastRaceData = lastResult;
-            
-            // Calcular puntos del último GP
-            this.calculatePointsForLastRace();
-            
+        const driverData = this.data.drivers[driverName];
+        if (driverData && driverData.foto) {
+            img.src = driverData.foto;
+            img.style.display = 'block';
         } else {
-            // Ocultar card si no hay resultados
-            card?.classList.add('hidden');
+            img.style.display = 'none';
+        }
+    }
+
+    // NUEVO: Cargar última apuesta del usuario
+    loadLastUserBet() {
+        const user = this.state.currentUser;
+        const userBets = this.sheetsData.bets.filter(bet => bet.Jugador === user);
+        
+        if (userBets.length > 0) {
+            const lastBet = userBets[userBets.length - 1];
+            this.state.lastUserBet = lastBet;
+            
+            const card = document.getElementById('last-bet-card');
+            if (card) {
+                card.style.display = 'block';
+                
+                // Nombre de la carrera
+                const raceName = document.getElementById('last-bet-race');
+                if (raceName) {
+                    raceName.textContent = lastBet.Carrera.split(' (')[0];
+                }
+                
+                // Actualizar imágenes del podio apostado
+                const drivers = [
+                    { id: 'last-bet-p1-img', name: lastBet.P1 },
+                    { id: 'last-bet-p2-img', name: lastBet.P2 },
+                    { id: 'last-bet-p3-img', name: lastBet.P3 }
+                ];
+                
+                drivers.forEach(driver => {
+                    const img = document.getElementById(driver.id);
+                    if (img && driver.name && this.data.drivers[driver.name]) {
+                        img.src = this.data.drivers[driver.name].foto;
+                        img.alt = driver.name;
+                        img.style.display = 'block';
+                    }
+                });
+            }
+        } else {
+            const card = document.getElementById('last-bet-card');
+            if (card) {
+                card.style.display = 'none';
+            }
         }
     }
 
@@ -486,44 +598,47 @@ class F1CupApp {
         const currentGP = this.circuitsList[this.state.selectedGP];
         const user = this.state.currentUser;
         
-        // Buscar apuesta existente
         const existingBet = this.sheetsData.bets.find(bet => 
             bet.Carrera === currentGP && bet.Jugador === user
         );
         
-        // Actualizar selectores
-        const p1Select = document.getElementById('p1-select');
-        const p2Select = document.getElementById('p2-select');
-        const p3Select = document.getElementById('p3-select');
-        
         if (existingBet) {
-            console.log(`📝 Cargando apuesta existente para ${user} en ${currentGP}`);
-            
             this.state.selectedPodium = [
                 existingBet.P1,
                 existingBet.P2,
                 existingBet.P3
             ];
             
-            if (p1Select) p1Select.value = existingBet.P1;
-            if (p2Select) p2Select.value = existingBet.P2;
-            if (p3Select) p3Select.value = existingBet.P3;
+            // Actualizar selectores
+            ['p1', 'p2', 'p3'].forEach((pos, index) => {
+                const select = document.getElementById(`${pos}-select`);
+                const img = document.getElementById(`${pos}-img`);
+                
+                if (select) select.value = this.state.selectedPodium[index];
+                if (img && this.state.selectedPodium[index]) {
+                    const driverData = this.data.drivers[this.state.selectedPodium[index]];
+                    if (driverData && driverData.foto) {
+                        img.src = driverData.foto;
+                        img.style.display = 'block';
+                    }
+                }
+            });
             
-            // Actualizar texto del botón
             const saveBtn = document.getElementById('btn-save-bet');
             if (saveBtn) {
                 saveBtn.innerHTML = '<i class="fas fa-sync-alt"></i> ACTUALIZAR APUESTA';
             }
-            
         } else {
-            // Resetear si no hay apuesta
             this.state.selectedPodium = ['', '', ''];
             
-            if (p1Select) p1Select.value = '';
-            if (p2Select) p2Select.value = '';
-            if (p3Select) p3Select.value = '';
+            ['p1', 'p2', 'p3'].forEach(pos => {
+                const select = document.getElementById(`${pos}-select`);
+                const img = document.getElementById(`${pos}-img`);
+                
+                if (select) select.value = '';
+                if (img) img.style.display = 'none';
+            });
             
-            // Restaurar texto del botón
             const saveBtn = document.getElementById('btn-save-bet');
             if (saveBtn) {
                 saveBtn.innerHTML = '<i class="fas fa-save"></i> GUARDAR APUESTA';
@@ -533,16 +648,14 @@ class F1CupApp {
 
     updatePodiumSelection(position, driver) {
         this.state.selectedPodium[position] = driver;
-        console.log(`🏆 Posición ${position + 1}: ${driver}`);
     }
 
-    saveCurrentBet() {
+    async saveCurrentBet() {
         const currentGP = this.circuitsList[this.state.selectedGP];
         const user = this.state.currentUser;
-        
-        // Validar que se hayan seleccionado 3 pilotos diferentes
         const selected = this.state.selectedPodium;
         
+        // Validaciones
         if (!selected[0] || !selected[1] || !selected[2]) {
             this.showNotification('❌ Debes seleccionar 3 pilotos', 'error');
             return;
@@ -553,103 +666,82 @@ class F1CupApp {
             return;
         }
         
-        console.log(`💾 Guardando apuesta para ${user} en ${currentGP}:`, selected);
-        
-        // Crear objeto de apuesta
+        // Crear apuesta
         const betData = {
             Carrera: currentGP,
             Jugador: user,
             P1: selected[0],
             P2: selected[1],
             P3: selected[2],
-            Fecha: new Date().toISOString()
+            Fecha: new Date().toLocaleString('es-ES')
         };
         
-        // Buscar si ya existe una apuesta
-        const existingIndex = this.sheetsData.bets.findIndex(bet => 
-            bet.Carrera === currentGP && bet.Jugador === user
-        );
+        // Guardar en Google Sheets
+        const rowData = [
+            betData.Carrera,
+            betData.Jugador,
+            betData.P1,
+            betData.P2,
+            betData.P3,
+            betData.Fecha
+        ];
         
-        if (existingIndex !== -1) {
-            // Actualizar apuesta existente
-            this.sheetsData.bets[existingIndex] = betData;
-            this.showNotification('✅ Apuesta actualizada correctamente', 'success');
+        const success = await this.saveToGoogleSheet('Apuestas', rowData);
+        
+        if (success) {
+            // Actualizar datos locales
+            const existingIndex = this.sheetsData.bets.findIndex(bet => 
+                bet.Carrera === currentGP && bet.Jugador === user
+            );
+            
+            if (existingIndex !== -1) {
+                this.sheetsData.bets[existingIndex] = betData;
+                this.showNotification('✅ Apuesta actualizada', 'success');
+            } else {
+                this.sheetsData.bets.push(betData);
+                this.showNotification('✅ Apuesta guardada', 'success');
+            }
+            
+            // Actualizar última apuesta
+            this.loadLastUserBet();
+            this.loadUserBetForCurrentGP();
         } else {
-            // Añadir nueva apuesta
-            this.sheetsData.bets.push(betData);
-            this.showNotification('✅ Apuesta guardada correctamente', 'success');
+            this.showNotification('❌ Error guardando apuesta', 'error');
         }
-        
-        // Simular guardado en Google Sheets
-        this.simulateSaveToSheets(betData);
-        
-        // Actualizar UI
-        this.loadUserBetForCurrentGP();
     }
 
-    simulateSaveToSheets(betData) {
-        console.log('📤 Simulando guardado en Google Sheets:', betData);
+    switchTab(tab) {
+        this.state.currentTab = tab;
         
-        // Aquí iría la lógica real para guardar en Google Sheets
-        // Por ahora solo mostramos un log
-        
-        setTimeout(() => {
-            console.log('✅ Simulación: Apuesta guardada exitosamente');
-        }, 500);
-    }
-
-    calculatePointsForLastRace() {
-        if (!this.state.lastRaceData) return;
-        
-        const lastResult = this.state.lastRaceData;
-        const currentGP = lastResult.Carrera;
-        
-        console.log(`🧮 Calculando puntos para ${currentGP}...`);
-        
-        // Buscar apuestas para esta carrera
-        const betsForRace = this.sheetsData.bets.filter(bet => bet.Carrera === currentGP);
-        
-        betsForRace.forEach(bet => {
-            let points = 0;
-            
-            // Puntos por acierto exacto de posición
-            if (bet.P1 === lastResult.P1_Real) points += 5;
-            if (bet.P2 === lastResult.P2_Real) points += 3;
-            if (bet.P3 === lastResult.P3_Real) points += 2;
-            
-            // Puntos por piloto en podio (pero no en posición correcta)
-            if (bet.P1 === lastResult.P2_Real || bet.P1 === lastResult.P3_Real) points += 1;
-            if (bet.P2 === lastResult.P1_Real || bet.P2 === lastResult.P3_Real) points += 1;
-            if (bet.P3 === lastResult.P1_Real || bet.P3 === lastResult.P2_Real) points += 1;
-            
-            // Actualizar puntos totales
-            this.sheetsData.points[bet.Jugador] = (this.sheetsData.points[bet.Jugador] || 0) + points;
-            
-            console.log(`📊 ${bet.Jugador}: ${points} puntos (Total: ${this.sheetsData.points[bet.Jugador]})`);
+        document.querySelectorAll('.tab-btn').forEach(btn => {
+            btn.classList.toggle('active', btn.dataset.tab === tab);
         });
         
-        // Actualizar UI de puntos si estamos en esa pestaña
-        if (this.state.currentTab === 'points') {
-            this.loadPointsTab();
-        }
+        document.querySelectorAll('.tab-pane').forEach(pane => {
+            pane.classList.toggle('active', pane.id === `tab-${tab}`);
+        });
+        
+        this.loadTabContent(tab);
+        this.scrollToTop();
     }
 
     loadTabContent(tab) {
         switch(tab) {
             case 'race':
-                // Ya está cargado por defecto
+                // Ya cargado
                 break;
-                
             case 'season':
                 this.loadSeasonTab();
                 break;
-                
             case 'points':
                 this.loadPointsTab();
                 break;
-                
-            default:
-                console.warn(`⚠️ Pestaña desconocida: ${tab}`);
+            case 'admin':
+                this.loadAdminPanel();
+                break;
+            case 'lastNumber':
+                this.loadLastNumberTab();
+                break;
         }
     }
 
@@ -657,371 +749,511 @@ class F1CupApp {
         const tabContent = document.getElementById('tab-season');
         if (!tabContent) return;
         
-        console.log('🌍 Cargando pestaña Mundial...');
-        
-        // Limpiar contenido
-        tabContent.innerHTML = '';
-        
-        // Crear contenido de apuestas mundiales
-        const card = document.createElement('div');
-        card.className = 'mobile-card';
-        
-        card.innerHTML = `
-            <p class="sub-text">🏆 APUESTAS MUNDIALES 2026</p>
-            <div class="season-bets-container mt-20">
-                <div class="form-group">
-                    <label class="form-label">CAMPEÓN DEL MUNDIO</label>
-                    <select id="season-p1" class="form-select">
-                        <option value="">Selecciona piloto</option>
-                        ${this.driversList.map(driver => 
-                            `<option value="${driver}">${driver} (${this.data.drivers[driver]?.equipo || 'Sin equipo'})</option>`
-                        ).join('')}
-                    </select>
+        tabContent.innerHTML = `
+            <div class="mobile-card">
+                <p class="sub-text">🏆 APUESTAS MUNDIALES 2026</p>
+                
+                <div class="season-section">
+                    <h4><i class="fas fa-user"></i> PILOTOS</h4>
+                    <div class="form-group">
+                        <label class="form-label">CAMPEÓN DEL MUNDIO</label>
+                        <select id="season-p1" class="form-select">
+                            <option value="">Selecciona piloto</option>
+                            ${this.driversList.map(driver => 
+                                `<option value="${driver}">${driver}</option>`
+                            ).join('')}
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">SUBCAMPEÓN</label>
+                        <select id="season-p2" class="form-select">
+                            <option value="">Selecciona piloto</option>
+                            ${this.driversList.map(driver => 
+                                `<option value="${driver}">${driver}</option>`
+                            ).join('')}
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">TERCER LUGAR</label>
+                        <select id="season-p3" class="form-select">
+                            <option value="">Selecciona piloto</option>
+                            ${this.driversList.map(driver => 
+                                `<option value="${driver}">${driver}</option>`
+                            ).join('')}
+                        </select>
+                    </div>
                 </div>
-                <div class="form-group">
-                    <label class="form-label">SUBCAMPEÓN</label>
-                    <select id="season-p2" class="form-select">
-                        <option value="">Selecciona piloto</option>
-                        ${this.driversList.map(driver => 
-                            `<option value="${driver}">${driver} (${this.data.drivers[driver]?.equipo || 'Sin equipo'})</option>`
-                        ).join('')}
-                    </select>
+                
+                <div class="season-section mt-20">
+                    <h4><i class="fas fa-car"></i> CONSTRUCTORES</h4>
+                    <div class="form-group">
+                        <label class="form-label">CAMPEÓN DE CONSTRUCTORES</label>
+                        <select id="season-c1" class="form-select">
+                            <option value="">Selecciona equipo</option>
+                            ${this.data.constructors.map(team => 
+                                `<option value="${team}">${team}</option>`
+                            ).join('')}
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">SUBCAMPEÓN</label>
+                        <select id="season-c2" class="form-select">
+                            <option value="">Selecciona equipo</option>
+                            ${this.data.constructors.map(team => 
+                                `<option value="${team}">${team}</option>`
+                            ).join('')}
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">TERCER LUGAR</label>
+                        <select id="season-c3" class="form-select">
+                            <option value="">Selecciona equipo</option>
+                            ${this.data.constructors.map(team => 
+                                `<option value="${team}">${team}</option>`
+                            ).join('')}
+                        </select>
+                    </div>
                 </div>
-                <div class="form-group">
-                    <label class="form-label">TERCER LUGAR</label>
-                    <select id="season-p3" class="form-select">
-                        <option value="">Selecciona piloto</option>
-                        ${this.driversList.map(driver => 
-                            `<option value="${driver}">${driver} (${this.data.drivers[driver]?.equipo || 'Sin equipo'})</option>`
-                        ).join('')}
-                    </select>
-                </div>
+                
                 <button id="btn-save-season" class="btn btn-primary w-100 mt-20">
                     <i class="fas fa-trophy"></i> GUARDAR APUESTA MUNDIAL
                 </button>
             </div>
         `;
         
-        tabContent.appendChild(card);
-        
-        // Añadir event listener para el botón de guardar
+        // Event listener para guardar apuesta mundial
         const saveBtn = document.getElementById('btn-save-season');
         if (saveBtn) {
             saveBtn.onclick = () => this.saveSeasonBet();
         }
         
-        // Cargar apuesta mundial existente si la hay
+        // Cargar apuesta existente
         this.loadExistingSeasonBet();
     }
 
-    loadExistingSeasonBet() {
+    async saveSeasonBet() {
         const user = this.state.currentUser;
         
-        // Buscar apuesta mundial existente
-        const existingBet = this.sheetsData.seasonBets.find(bet => bet.Jugador === user);
-        
-        if (existingBet) {
-            const p1Select = document.getElementById('season-p1');
-            const p2Select = document.getElementById('season-p2');
-            const p3Select = document.getElementById('season-p3');
-            
-            if (p1Select) p1Select.value = existingBet.D_P1;
-            if (p2Select) p2Select.value = existingBet.D_P2;
-            if (p3Select) p3Select.value = existingBet.D_P3;
-            
-            // Actualizar texto del botón
-            const saveBtn = document.getElementById('btn-save-season');
-            if (saveBtn) {
-                saveBtn.innerHTML = '<i class="fas fa-sync-alt"></i> ACTUALIZAR APUESTA MUNDIAL';
-            }
-        }
-    }
-
-    saveSeasonBet() {
-        const user = this.state.currentUser;
-        const p1Select = document.getElementById('season-p1');
-        const p2Select = document.getElementById('season-p2');
-        const p3Select = document.getElementById('season-p3');
-        
-        if (!p1Select || !p2Select || !p3Select) return;
-        
-        const seasonBet = {
-            D_P1: p1Select.value,
-            D_P2: p2Select.value,
-            D_P3: p3Select.value
+        const seasonData = {
+            Jugador: user,
+            D_P1: document.getElementById('season-p1').value,
+            D_P2: document.getElementById('season-p2').value,
+            D_P3: document.getElementById('season-p3').value,
+            C_P1: document.getElementById('season-c1').value,
+            C_P2: document.getElementById('season-c2').value,
+            C_P3: document.getElementById('season-c3').value,
+            Fecha: new Date().toLocaleString('es-ES')
         };
         
         // Validar
-        if (!seasonBet.D_P1 || !seasonBet.D_P2 || !seasonBet.D_P3) {
-            this.showNotification('❌ Debes seleccionar 3 pilotos', 'error');
+        const drivers = [seasonData.D_P1, seasonData.D_P2, seasonData.D_P3];
+        const constructors = [seasonData.C_P1, seasonData.C_P2, seasonData.C_P3];
+        
+        if (drivers.includes('') || constructors.includes('')) {
+            this.showNotification('❌ Debes completar todas las selecciones', 'error');
             return;
         }
         
-        if (seasonBet.D_P1 === seasonBet.D_P2 || seasonBet.D_P1 === seasonBet.D_P3 || seasonBet.D_P2 === seasonBet.D_P3) {
+        if (new Set(drivers).size !== 3) {
             this.showNotification('❌ Los pilotos deben ser diferentes', 'error');
             return;
         }
         
-        console.log(`🌍 Guardando apuesta mundial para ${user}:`, seasonBet);
-        
-        // Crear objeto completo
-        const seasonData = {
-            Jugador: user,
-            ...seasonBet,
-            Fecha: new Date().toISOString()
-        };
-        
-        // Buscar si ya existe
-        const existingIndex = this.sheetsData.seasonBets.findIndex(bet => bet.Jugador === user);
-        
-        if (existingIndex !== -1) {
-            this.sheetsData.seasonBets[existingIndex] = seasonData;
-            this.showNotification('✅ Apuesta mundial actualizada', 'success');
-        } else {
-            this.sheetsData.seasonBets.push(seasonData);
-            this.showNotification('✅ Apuesta mundial guardada', 'success');
+        if (new Set(constructors).size !== 3) {
+            this.showNotification('❌ Los constructores deben ser diferentes', 'error');
+            return;
         }
         
-        // Simular guardado
-        this.simulateSaveSeasonToSheets(seasonData);
-    }
-
-    simulateSaveSeasonToSheets(seasonData) {
-        console.log('📤 Simulando guardado de apuesta mundial:', seasonData);
+        // Guardar en Google Sheets
+        const rowData = [
+            seasonData.Jugador,
+            seasonData.D_P1,
+            seasonData.D_P2,
+            seasonData.D_P3,
+            seasonData.C_P1,
+            seasonData.C_P2,
+            seasonData.C_P3,
+            seasonData.Fecha
+        ];
         
-        setTimeout(() => {
-            console.log('✅ Simulación: Apuesta mundial guardada exitosamente');
-        }, 500);
+        const success = await this.saveToGoogleSheet('Mundial', rowData);
+        
+        if (success) {
+            // Actualizar local
+            const existingIndex = this.sheetsData.seasonBets.findIndex(bet => bet.Jugador === user);
+            
+            if (existingIndex !== -1) {
+                this.sheetsData.seasonBets[existingIndex] = seasonData;
+                this.showNotification('✅ Apuesta mundial actualizada', 'success');
+            } else {
+                this.sheetsData.seasonBets.push(seasonData);
+                this.showNotification('✅ Apuesta mundial guardada', 'success');
+            }
+        } else {
+            this.showNotification('❌ Error guardando apuesta mundial', 'error');
+        }
     }
 
     loadPointsTab() {
+        // Recalcular puntos antes de mostrar
+        this.calculateAllPoints();
+        
         const tabContent = document.getElementById('tab-points');
         if (!tabContent) return;
         
-        console.log('📊 Cargando pestaña Puntos...');
-        
-        // Limpiar contenido
-        tabContent.innerHTML = '';
-        
-        // Crear card de clasificación
-        const card = document.createElement('div');
-        card.className = 'mobile-card';
-        
-        // Ordenar jugadores por puntos
+        // Ordenar por puntos
         const sortedPlayers = Object.entries(this.sheetsData.points)
             .sort((a, b) => b[1] - a[1]);
         
-        const pointsTable = sortedPlayers.map(([player, points], index) => {
-            const position = index + 1;
-            let positionClass = '';
-            
-            if (position === 1) positionClass = 'first';
-            else if (position === 2) positionClass = 'second';
-            else if (position === 3) positionClass = 'third';
-            
-            return `
-                <div class="points-row ${positionClass}">
-                    <div class="position">${position}º</div>
-                    <div class="player-name">${player}</div>
-                    <div class="points">${points} pts</div>
+        tabContent.innerHTML = `
+            <div class="mobile-card">
+                <p class="sub-text">📊 CLASIFICACIÓN 2026</p>
+                <div class="points-table mt-20">
+                    ${sortedPlayers.map(([player, points], index) => `
+                        <div class="points-row ${index === 0 ? 'first' : index === 1 ? 'second' : index === 2 ? 'third' : ''}">
+                            <div class="position">${index + 1}º</div>
+                            <div class="player-name">${player}</div>
+                            <div class="points">${points} pts</div>
+                        </div>
+                    `).join('')}
                 </div>
-            `;
-        }).join('');
-        
-        card.innerHTML = `
-            <p class="sub-text">📊 CLASIFICACIÓN 2026</p>
-            <div class="points-table mt-20">
-                ${pointsTable || '<p class="text-center" style="color: var(--f1-light-gray); margin-top: 20px;">No hay puntos registrados todavía</p>'}
+                
+                <div class="points-info mt-20">
+                    <p class="sub-text" style="font-size: 0.8rem; margin-bottom: 10px;">SISTEMA DE PUNTOS</p>
+                    <div class="points-rules">
+                        <div class="rule-item">
+                            <span class="rule-point">5 pts</span>
+                            <span class="rule-text">1 acierto exacto</span>
+                        </div>
+                        <div class="rule-item">
+                            <span class="rule-point">4 pts</span>
+                            <span class="rule-text">2 aciertos exactos</span>
+                        </div>
+                        <div class="rule-item">
+                            <span class="rule-point">3 pts</span>
+                            <span class="rule-text">3 aciertos exactos</span>
+                        </div>
+                        <div class="rule-item">
+                            <span class="rule-point">2 pts</span>
+                            <span class="rule-text">Cada piloto en podio</span>
+                        </div>
+                        <div class="rule-item">
+                            <span class="rule-point">1 pt</span>
+                            <span class="rule-text">Menor diferencia de posiciones</span>
+                        </div>
+                    </div>
+                </div>
             </div>
-            <div class="points-info mt-20">
-                <p class="sub-text" style="font-size: 0.8rem; margin-bottom: 10px;">SISTEMA DE PUNTOS</p>
-                <div class="points-rules">
-                    <div class="rule-item">
-                        <span class="rule-point">5 pts</span>
-                        <span class="rule-text">Acierto exacto de posición</span>
+        `;
+    }
+
+    // Calcular puntos para todas las carreras
+    calculateAllPoints() {
+        // Reiniciar puntos
+        this.sheetsData.points = { Varo: 0, Cía: 0 };
+        
+        // Por cada carrera con resultados
+        Object.keys(this.state.gpResults).forEach(carrera => {
+            const results = this.state.gpResults[carrera];
+            const betsForRace = this.sheetsData.bets.filter(bet => bet.Carrera === carrera);
+            
+            if (betsForRace.length > 0 && Object.keys(results).length >= 3) {
+                this.calculatePointsForRace(carrera, results, betsForRace);
+            }
+        });
+    }
+
+    calculatePointsForRace(carrera, results, bets) {
+        const realPodium = [results[1], results[2], results[3]];
+        
+        bets.forEach(bet => {
+            const betPodium = [bet.P1, bet.P2, bet.P3];
+            let points = 0;
+            let exactMatches = 0;
+            let podioMatches = 0;
+            
+            // Calcular aciertos exactos
+            for (let i = 0; i < 3; i++) {
+                if (betPodium[i] === realPodium[i]) {
+                    exactMatches++;
+                }
+            }
+            
+            // Calcular pilotos en podio
+            betPodium.forEach(piloto => {
+                if (realPodium.includes(piloto)) {
+                    podioMatches++;
+                }
+            });
+            
+            // Asignar puntos
+            switch(exactMatches) {
+                case 1: points += 5; break;
+                case 2: points += 4; break;
+                case 3: points += 3; break;
+            }
+            
+            // 2 puntos por cada piloto en podio
+            points += (podioMatches * 2);
+            
+            // Calcular diferencia de posiciones para el punto extra
+            let positionDifference = 0;
+            betPodium.forEach((piloto, index) => {
+                const realIndex = realPodium.indexOf(piloto);
+                if (realIndex !== -1) {
+                    positionDifference += Math.abs(index - realIndex);
+                } else {
+                    // Si el piloto no está en el podio real, asignar máxima diferencia
+                    positionDifference += 3;
+                }
+            });
+            
+            bet.tempPoints = points;
+            bet.positionDifference = positionDifference;
+        });
+        
+        // Punto extra para menor diferencia
+        if (bets.length > 1) {
+            let minDifference = Infinity;
+            let winner = null;
+            
+            bets.forEach(bet => {
+                if (bet.positionDifference < minDifference) {
+                    minDifference = bet.positionDifference;
+                    winner = bet.Jugador;
+                }
+            });
+            
+            if (winner) {
+                const winnerBet = bets.find(b => b.Jugador === winner);
+                if (winnerBet) {
+                    winnerBet.tempPoints += 1;
+                }
+            }
+        }
+        
+        // Sumar puntos
+        bets.forEach(bet => {
+            this.sheetsData.points[bet.Jugador] = (this.sheetsData.points[bet.Jugador] || 0) + bet.tempPoints;
+        });
+    }
+
+    loadAdminPanel() {
+        const tabContent = document.getElementById('tab-admin');
+        if (!tabContent) return;
+        
+        tabContent.innerHTML = `
+            <div class="mobile-card">
+                <p class="sub-text">🔧 PANEL DE ADMINISTRACIÓN</p>
+                
+                <div class="admin-section mt-20">
+                    <h4><i class="fas fa-flag-checkered"></i> PUBLICAR RESULTADOS (22 PILOTOS)</h4>
+                    <div class="form-group">
+                        <label class="form-label">CARRERA</label>
+                        <select id="admin-gp-select" class="form-select">
+                            ${this.circuitsList.map((circuit, index) => 
+                                `<option value="${index}">${circuit}</option>`
+                            ).join('')}
+                        </select>
                     </div>
-                    <div class="rule-item">
-                        <span class="rule-point">3 pts</span>
-                        <span class="rule-text">Acierto de posición 2º</span>
+                    
+                    <div id="results-container" class="results-grid mt-20">
+                        ${Array.from({length: 22}, (_, i) => `
+                            <div class="result-row">
+                                <div class="position-label">P${i+1}</div>
+                                <select class="result-select" data-position="${i+1}">
+                                    <option value="">Selecciona piloto</option>
+                                    ${this.driversList.map(driver => 
+                                        `<option value="${driver}">${driver}</option>`
+                                    ).join('')}
+                                </select>
+                            </div>
+                        `).join('')}
                     </div>
-                    <div class="rule-item">
-                        <span class="rule-point">2 pts</span>
-                        <span class="rule-text">Acierto de posición 3º</span>
+                    
+                    <button id="btn-publish-results" class="btn btn-primary w-100 mt-20">
+                        <i class="fas fa-paper-plane"></i> PUBLICAR RESULTADOS COMPLETOS
+                    </button>
+                </div>
+                
+                <div class="admin-section mt-30">
+                    <h4><i class="fas fa-calculator"></i> ÚLTIMO NÚMERO</h4>
+                    <div class="form-group">
+                        <label class="form-label">CARRERA</label>
+                        <select id="last-number-gp" class="form-select">
+                            ${this.circuitsList.map((circuit, index) => 
+                                `<option value="${index}">${circuit}</option>`
+                            ).join('')}
+                        </select>
                     </div>
-                    <div class="rule-item">
-                        <span class="rule-point">1 pt</span>
-                        <span class="rule-text">Piloto en podio (posición incorrecta)</span>
+                    <div class="form-group">
+                        <label class="form-label">ÚLTIMO NÚMERO (1-22)</label>
+                        <input type="number" id="last-number-input" class="form-input" min="1" max="22" placeholder="Ej: 12">
+                    </div>
+                    <button id="btn-save-last-number" class="btn btn-primary w-100 mt-20">
+                        <i class="fas fa-save"></i> GUARDAR ÚLTIMO NÚMERO
+                    </button>
+                </div>
+                
+                <div class="admin-section mt-30">
+                    <h4><i class="fas fa-chart-line"></i> ESTADÍSTICAS</h4>
+                    <div class="stats-grid">
+                        <div class="stat-card">
+                            <div class="stat-value">${this.sheetsData.bets.length}</div>
+                            <div class="stat-label">Apuestas totales</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-value">${Object.keys(this.state.gpResults).length}</div>
+                            <div class="stat-label">Carreras con resultados</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-value">${Object.keys(this.sheetsData.points).length}</div>
+                            <div class="stat-label">Jugadores activos</div>
+                        </div>
                     </div>
                 </div>
             </div>
         `;
         
-        tabContent.appendChild(card);
-        
-        // Añadir estilos para la tabla de puntos
-        this.addPointsStyles();
+        // Event listeners para admin
+        document.getElementById('btn-publish-results').onclick = () => this.publishFullResults();
+        document.getElementById('btn-save-last-number').onclick = () => this.saveLastNumber();
     }
 
-    addPointsStyles() {
-        const style = document.createElement('style');
-        style.textContent = `
-            .points-table {
-                background: rgba(0, 0, 0, 0.2);
-                border-radius: 10px;
-                overflow: hidden;
+    async publishFullResults() {
+        const gpIndex = document.getElementById('admin-gp-select').value;
+        const circuit = this.circuitsList[gpIndex];
+        
+        // Recolectar resultados de 22 posiciones
+        const results = {};
+        const rowData = [circuit];
+        
+        for (let i = 1; i <= 22; i++) {
+            const select = document.querySelector(`[data-position="${i}"]`);
+            const driver = select ? select.value : '';
+            
+            if (!driver) {
+                this.showNotification(`❌ Falta seleccionar piloto para P${i}`, 'error');
+                return;
             }
             
-            .points-row {
-                display: flex;
-                align-items: center;
-                padding: 15px 20px;
-                border-bottom: 1px solid rgba(255, 255, 255, 0.05);
-                transition: all 0.3s ease;
-            }
+            results[i] = driver;
+            rowData.push(driver);
+        }
+        
+        // Verificar pilotos únicos
+        const drivers = Object.values(results);
+        if (new Set(drivers).size !== 22) {
+            this.showNotification('❌ Todos los pilotos deben ser diferentes', 'error');
+            return;
+        }
+        
+        // Guardar en Google Sheets
+        const success = await this.saveToGoogleSheet('Resultados', rowData);
+        
+        if (success) {
+            // Actualizar local
+            this.state.gpResults[circuit] = results;
+            this.sheetsData.results.push({
+                Carrera: circuit,
+                ...results
+            });
             
-            .points-row:hover {
-                background: rgba(225, 6, 0, 0.05);
-            }
+            this.showNotification('✅ Resultados publicados correctamente', 'success');
             
-            .points-row.first {
-                background: linear-gradient(90deg, rgba(255, 215, 0, 0.1), transparent);
-                border-left: 4px solid #ffd700;
-            }
+            // Recalcular puntos
+            this.calculateAllPoints();
             
-            .points-row.second {
-                background: linear-gradient(90deg, rgba(192, 192, 192, 0.1), transparent);
-                border-left: 4px solid #c0c0c0;
+            // Actualizar pestaña de puntos si está activa
+            if (this.state.currentTab === 'points') {
+                this.loadPointsTab();
             }
-            
-            .points-row.third {
-                background: linear-gradient(90deg, rgba(205, 127, 50, 0.1), transparent);
-                border-left: 4px solid #cd7f32;
-            }
-            
-            .position {
-                width: 50px;
-                font-weight: 900;
-                font-size: 1.2rem;
-                color: var(--f1-red);
-            }
-            
-            .player-name {
-                flex: 1;
-                font-weight: 700;
-                font-size: 1.1rem;
-            }
-            
-            .points {
-                font-weight: 900;
-                font-size: 1.3rem;
-                color: var(--f1-white);
-                background: var(--f1-red);
-                padding: 5px 15px;
-                border-radius: 20px;
-                min-width: 80px;
-                text-align: center;
-            }
-            
-            .points-info {
-                background: rgba(255, 255, 255, 0.03);
-                padding: 20px;
-                border-radius: 10px;
-                border: 1px solid rgba(225, 6, 0, 0.1);
-            }
-            
-            .points-rules {
-                display: grid;
-                grid-template-columns: 1fr;
-                gap: 12px;
-            }
-            
-            .rule-item {
-                display: flex;
-                align-items: center;
-                gap: 15px;
-                padding: 10px;
-                background: rgba(255, 255, 255, 0.02);
-                border-radius: 8px;
-            }
-            
-            .rule-point {
-                background: var(--f1-red);
-                color: white;
-                padding: 5px 12px;
-                border-radius: 6px;
-                font-weight: 700;
-                font-size: 0.9rem;
-                min-width: 60px;
-                text-align: center;
-            }
-            
-            .rule-text {
-                color: var(--f1-light-gray);
-                font-size: 0.9rem;
-                flex: 1;
-            }
+        } else {
+            this.showNotification('❌ Error publicando resultados', 'error');
+        }
+    }
+
+    async saveLastNumber() {
+        const gpIndex = document.getElementById('last-number-gp').value;
+        const circuit = this.circuitsList[gpIndex];
+        const lastNumber = parseInt(document.getElementById('last-number-input').value);
+        
+        if (!lastNumber || lastNumber < 1 || lastNumber > 22) {
+            this.showNotification('❌ El último número debe estar entre 1 y 22', 'error');
+            return;
+        }
+        
+        // Guardar en Google Sheets
+        const rowData = [
+            circuit,
+            this.state.currentUser,
+            lastNumber.toString()
+        ];
+        
+        const success = await this.saveToGoogleSheet('UltimoNumero', rowData);
+        
+        if (success) {
+            this.sheetsData.lastNumberResults[circuit] = lastNumber;
+            this.showNotification('✅ Último número guardado', 'success');
+        } else {
+            this.showNotification('❌ Error guardando último número', 'error');
+        }
+    }
+
+    loadLastNumberTab() {
+        const tabContent = document.getElementById('tab-lastNumber');
+        if (!tabContent) return;
+        
+        tabContent.innerHTML = `
+            <div class="mobile-card">
+                <p class="sub-text">🔢 ÚLTIMO NÚMERO POR CARRERA</p>
+                <div class="last-number-list mt-20">
+                    ${Object.entries(this.sheetsData.lastNumberResults).map(([carrera, numero]) => `
+                        <div class="last-number-item">
+                            <div class="circuit-name">${carrera.split(' (')[0]}</div>
+                            <div class="last-number">${numero}</div>
+                        </div>
+                    `).join('') || '<p class="text-center">No hay datos de último número</p>'}
+                </div>
+            </div>
         `;
-        
-        document.head.appendChild(style);
     }
 
-    refreshData() {
-        console.log('🔄 Refrescando datos...');
-        
-        // Mostrar indicador de carga
+    async refreshData() {
         const refreshBtn = document.getElementById('btn-refresh');
         if (refreshBtn) {
             refreshBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
             refreshBtn.disabled = true;
         }
         
-        // Simular carga de datos
-        setTimeout(() => {
-            // Recargar todo
-            this.loadLastRace();
-            this.loadUserBetForCurrentGP();
-            
-            if (this.state.currentTab === 'points') {
-                this.loadPointsTab();
-            }
-            
-            // Restaurar botón
-            if (refreshBtn) {
-                refreshBtn.innerHTML = '<i class="fas fa-redo"></i>';
-                refreshBtn.disabled = false;
-            }
-            
-            this.showNotification('✅ Datos actualizados', 'success');
-            
-        }, 1000);
-    }
-
-    loadInitialData() {
-        console.log('📥 Cargando datos iniciales...');
+        // Recargar datos de Google Sheets
+        await this.loadAllData();
         
-        // Aquí cargaríamos datos reales de Google Sheets
-        // Por ahora usamos datos de ejemplo
+        // Actualizar UI
+        this.loadLastUserBet();
+        this.loadUserBetForCurrentGP();
         
-        // Simular carga asíncrona
-        setTimeout(() => {
-            this.state.dataLoaded = true;
-            console.log('✅ Datos iniciales cargados');
-        }, 500);
+        if (this.state.currentTab === 'points') {
+            this.loadPointsTab();
+        }
+        
+        if (this.state.currentTab === 'lastNumber') {
+            this.loadLastNumberTab();
+        }
+        
+        if (refreshBtn) {
+            refreshBtn.innerHTML = '<i class="fas fa-redo"></i>';
+            refreshBtn.disabled = false;
+        }
+        
+        this.showNotification('✅ Datos actualizados desde Google Sheets', 'success');
     }
 
     showNotification(message, type = 'info') {
-        console.log(`📢 Notificación: ${message}`);
-        
-        // Crear elemento de notificación
+        // Crear notificación
         const notification = document.createElement('div');
         notification.className = `notification ${type}`;
-        notification.innerHTML = `
-            <div class="notification-content">
-                <span>${message}</span>
-            </div>
-        `;
-        
-        // Estilos para la notificación
+        notification.textContent = message;
         notification.style.cssText = `
             position: fixed;
             top: 20px;
@@ -1032,97 +1264,19 @@ class F1CupApp {
             border-radius: 10px;
             box-shadow: 0 5px 15px rgba(0,0,0,0.3);
             z-index: 1000;
-            animation: slideInRight 0.3s ease;
-            max-width: 300px;
-            font-weight: 600;
+            animation: slideIn 0.3s ease;
         `;
         
-        // Añadir al body
         document.body.appendChild(notification);
         
-        // Remover después de 3 segundos
         setTimeout(() => {
-            notification.style.animation = 'slideOutRight 0.3s ease';
-            setTimeout(() => {
-                if (notification.parentNode) {
-                    notification.parentNode.removeChild(notification);
-                }
-            }, 300);
+            notification.style.animation = 'slideOut 0.3s ease';
+            setTimeout(() => notification.remove(), 300);
         }, 3000);
-        
-        // Añadir animaciones CSS si no existen
-        if (!document.getElementById('notification-styles')) {
-            const style = document.createElement('style');
-            style.id = 'notification-styles';
-            style.textContent = `
-                @keyframes slideInRight {
-                    from {
-                        transform: translateX(100%);
-                        opacity: 0;
-                    }
-                    to {
-                        transform: translateX(0);
-                        opacity: 1;
-                    }
-                }
-                
-                @keyframes slideOutRight {
-                    from {
-                        transform: translateX(0);
-                        opacity: 1;
-                    }
-                    to {
-                        transform: translateX(100%);
-                        opacity: 0;
-                    }
-                }
-            `;
-            document.head.appendChild(style);
-        }
-    }
-
-    // Método para debug
-    debug() {
-        console.log('=== DEBUG INFO ===');
-        console.log('Estado:', this.state);
-        console.log('Datos cargados:', this.sheetsData);
-        console.log('Puntos:', this.sheetsData.points);
-        console.log('==================');
     }
 }
 
-// Iniciar aplicación cuando el DOM esté listo
-document.addEventListener('DOMContentLoaded', () => {
-    console.log('🚦 DOM cargado, iniciando aplicación...');
-    
-    // Crear instancia global
+// Iniciar aplicación
+window.addEventListener('load', () => {
     window.f1App = new F1CupApp();
-    
-    // Hacer disponible para debugging
-    window.debugF1App = () => window.f1App.debug();
-    
-    // Manejar tecla Escape para debug
-    document.addEventListener('keydown', (e) => {
-        if (e.key === 'Escape' && e.ctrlKey) {
-            window.f1App.debug();
-        }
-    });
-});
-
-// Manejar errores no capturados
-window.addEventListener('error', (event) => {
-    console.error('❌ Error no capturado:', event.error);
-    
-    // Mostrar error amigable al usuario
-    if (window.f1App && window.f1App.showNotification) {
-        window.f1App.showNotification('⚠️ Error en la aplicación. Por favor, recarga la página.', 'error');
-    }
-});
-
-// Manejar cuando la página se vuelve visible
-document.addEventListener('visibilitychange', () => {
-    if (!document.hidden && window.f1App) {
-        console.log('👀 Página visible, actualizando datos...');
-        window.f1App.refreshData();
-    }
 });
