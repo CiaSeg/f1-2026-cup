@@ -4,94 +4,68 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>F1 2026 Cup</title>
-    
-    <meta name="theme-color" content="#e10600">
-    <link rel="manifest" href="./manifest.json">
-    <link rel="icon" href="./assets/icon-192.png">
-    
-    <link href="https://fonts.googleapis.com/css2?family=Titillium+Web:wght@300;400;600;700;900&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    
-    <link rel="stylesheet" href="./style.css">
-    
-    <script src="./google-sheets-service.js" defer></script>
-    <script src="./app.js" defer></script>
+    <script src="google-sheets-service.js" defer></script>
+    <script src="app.js" defer></script>
 </head>
 <body>
     <div id="loading" class="loading-screen">
-        <div class="loading-content">
-            <h1>F1 <span>2026</span></h1>
-            <div class="spinner"></div>
-            <p>Cargando boxes...</p>
-        </div>
+        <h1>F1 <span>2026</span></h1>
+        <p>CARGANDO BOXES...</p>
     </div>
 
     <div id="app" class="app-container" style="display: none;">
         <div id="landing-page" class="page active">
-            <div class="landing-container">
-                <div class="logo-container">
-                    <h1>F1 <span>2026</span></h1>
-                    <h3 class="subtitle">COUPLE CUP</h3>
-                </div>
-                
-                <div class="mobile-card selection-card">
-                    <p class="instruction-text">¿Quién eres hoy?</p>
-                    <div class="player-buttons">
-                        <button id="btn-varo" class="player-btn varo-btn">
-                            <i class="fas fa-helmet-safety"></i> VARO
-                        </button>
-                        <button id="btn-cia" class="player-btn cia-btn">
-                            <i class="fas fa-helmet-safety"></i> CÍA
-                        </button>
-                    </div>
+            <h1>F1 <span>2026</span></h1>
+            <h3 style="text-align:center; color:var(--f1-red)">COUPLE CUP</h3>
+            <div class="mobile-card">
+                <p class="sub-text">SELECCIONA PILOTO</p>
+                <div class="player-buttons">
+                    <button id="btn-varo" class="player-btn varo-btn">VARO</button>
+                    <button id="btn-cia" class="player-btn cia-btn">CÍA</button>
                 </div>
             </div>
         </div>
 
         <div id="main-page" class="page">
             <header class="app-header">
-                <button id="btn-back" class="icon-btn"><i class="fas fa-chevron-left"></i></button>
-                <div class="header-info">
-                    <span id="current-user" class="user-badge"></span>
-                </div>
-                <button id="btn-refresh" class="icon-btn"><i class="fas fa-sync-alt"></i></button>
+                <button id="btn-back" class="back-btn"><i class="fas fa-arrow-left"></i></button>
+                <h2 id="current-user"></h2>
+                <button id="btn-refresh" class="refresh-btn"><i class="fas fa-redo"></i></button>
             </header>
 
-            <nav class="tabs-container">
-                <div class="tabs">
-                    <button class="tab-btn active" data-tab="race">CARRERA</button>
-                    <button class="tab-btn" data-tab="season">MUNDIAL</button>
-                    <button class="tab-btn" data-tab="points">PUNTOS</button>
-                </div>
-            </nav>
+            <div class="tabs">
+                <button class="tab-btn active" data-tab="race">CARRERA</button>
+                <button class="tab-btn" data-tab="season">MUNDIAL</button>
+                <button class="tab-btn" data-tab="points">PUNTOS</button>
+            </div>
 
-            <main class="tab-content">
+            <div class="tab-content">
                 <div id="tab-race" class="tab-pane active">
+                    <div id="last-race-card" class="mobile-card" style="display:none">
+                        <p class="sub-text">🏁 ANTERIOR CARRERA</p>
+                        <h3 id="last-race-name"></h3>
+                        <div class="last-race-content">
+                            <div class="podium-item"><img id="last-p2-img" src="" class="driver-img"><span></span></div>
+                            <div class="podium-item"><img id="last-p1-img" src="" class="driver-img"><span></span></div>
+                            <div class="podium-item"><img id="last-p3-img" src="" class="driver-img"><span></span></div>
+                        </div>
                     </div>
-                <div id="tab-season" class="tab-pane">
+                    <div class="mobile-card">
+                        <p class="sub-text">📅 PRÓXIMO GP</p>
+                        <select id="gp-select" class="gp-select"></select>
+                        <div class="circuit-header">
+                            <img id="circuit-flag" src="" class="flag-img">
+                            <h4 id="circuit-name"></h4>
+                        </div>
+                        <img id="circuit-map" src="" class="map-img">
                     </div>
-                <div id="tab-points" class="tab-pane">
-                    </div>
-            </main>
+                </div>
+                <div id="tab-season" class="tab-pane"></div>
+                <div id="tab-points" class="tab-pane"></div>
+            </div>
         </div>
     </div>
-
-    <div id="notification-modal" class="modal">
-        <div class="modal-content">
-            <div id="modal-icon"></div>
-            <p id="modal-message"></p>
-            <button onclick="document.getElementById('notification-modal').style.display='none'">OK</button>
-        </div>
-    </div>
-
-    <script>
-        if ('serviceWorker' in navigator) {
-            window.addEventListener('load', () => {
-                navigator.serviceWorker.register('./service-worker.js')
-                    .then(reg => console.log('SW registrado'))
-                    .catch(err => console.log('Error SW', err));
-            });
-        }
-    </script>
 </body>
 </html>
