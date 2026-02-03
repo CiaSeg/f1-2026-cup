@@ -241,5 +241,87 @@
                 });
         }
     </script>
+    <!-- Botón secreto para activar admin -->
+<div class="admin-activation" style="position: fixed; bottom: 20px; right: 20px; z-index: 9999;">
+    <button id="secret-admin-btn" style="
+        background: transparent;
+        border: none;
+        color: #e10600;
+        font-size: 24px;
+        cursor: pointer;
+        opacity: 0.3;
+        transition: opacity 0.3s;
+    " title="Click 3 veces para activar admin">
+        <i class="fas fa-user-secret"></i>
+    </button>
+</div>
+
+<script>
+    // Código para activar modo admin
+    let adminClickCount = 0;
+    let adminClickTimer;
+    
+    document.getElementById('secret-admin-btn').addEventListener('click', function() {
+        adminClickCount++;
+        
+        if (adminClickCount === 1) {
+            this.style.opacity = '0.6';
+            setTimeout(() => {
+                if (adminClickCount < 3) {
+                    adminClickCount = 0;
+                    this.style.opacity = '0.3';
+                }
+            }, 2000);
+        } else if (adminClickCount === 2) {
+            this.style.opacity = '0.9';
+        } else if (adminClickCount === 3) {
+            // Activar modo admin
+            localStorage.setItem('f1_admin', 'true');
+            
+            // Mostrar notificación
+            const notification = document.createElement('div');
+            notification.style.cssText = `
+                position: fixed;
+                top: 50%;
+                left: 50%;
+                transform: translate(-50%, -50%);
+                background: #e10600;
+                color: white;
+                padding: 20px 40px;
+                border-radius: 10px;
+                font-weight: bold;
+                z-index: 10000;
+                box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+                animation: fadeInOut 3s ease;
+            `;
+            notification.textContent = '🔧 MODO ADMINISTRADOR ACTIVADO';
+            
+            // Estilos de animación
+            const style = document.createElement('style');
+            style.textContent = `
+                @keyframes fadeInOut {
+                    0% { opacity: 0; transform: translate(-50%, -50%) scale(0.5); }
+                    20% { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+                    80% { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+                    100% { opacity: 0; transform: translate(-50%, -50%) scale(0.5); }
+                }
+            `;
+            document.head.appendChild(style);
+            document.body.appendChild(notification);
+            
+            // Ocultar botón secreto
+            this.style.display = 'none';
+            
+            // Recargar la página después de 2 segundos
+            setTimeout(() => {
+                location.reload();
+            }, 2000);
+            
+            // Resetear contador
+            adminClickCount = 0;
+            this.style.opacity = '0.3';
+        }
+    });
+</script>
 </body>
 </html>
