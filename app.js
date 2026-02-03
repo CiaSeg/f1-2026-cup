@@ -26,6 +26,12 @@ class F1CupApp {
         // Datos estáticos
         this.data = {
             circuits: {
+                "TEST Bahrein (11-13 Feb)": { 
+                    nombre: "Sakhir - Preseason Testing", 
+                    bandera: "./assets/circuitos/bh.png", 
+                    mapa: "./assets/circuitos/bahrain.png",
+                    fecha: "11-13 Feb"
+                },
                 "GP Australia (06-08 Mar)": { 
                     nombre: "Albert Park", 
                     bandera: "./assets/circuitos/au.png", 
@@ -277,10 +283,19 @@ class F1CupApp {
     }
 
     async saveCurrentBet() {
-        console.log('💾 Intentando guardar apuesta...');
-        
-        const currentGP = this.circuitsList[this.state.selectedGP];
-        const user = this.state.currentUser;
+   
+    console.log('💾 Intentando guardar apuesta...');
+    
+    const currentGP = this.circuitsList[this.state.selectedGP];
+
+    // --- NUEVA VALIDACIÓN PARA TESTS ---
+    if (currentGP.includes('TEST')) {
+        this.showNotification('🚫 No se permiten apuestas en sesiones de TEST', 'error');
+        return; // Detiene la ejecución aquí
+    }
+    // ------------------------------------
+
+    const user = this.state.currentUser;
         const selected = this.state.selectedPodium;
         
         // Validaciones
@@ -597,12 +612,13 @@ class F1CupApp {
         select.value = this.state.selectedGP;
     }
 
-    updateCircuitInfo() {
+updateCircuitInfo() {
         const circuitKey = this.circuitsList[this.state.selectedGP];
         const info = this.data.circuits[circuitKey];
         
         if (!info) return;
         
+        // 1. Actualizar elementos visuales del circuito
         const name = document.getElementById('circuit-name');
         const flag = document.getElementById('circuit-flag');
         const map = document.getElementById('circuit-map');
@@ -612,6 +628,22 @@ class F1CupApp {
         if (flag) flag.src = info.bandera;
         if (map) map.src = info.mapa;
         if (fecha) fecha.textContent = info.fecha;
+
+        // 2. Control del botón de guardar para sesiones de TEST
+        const currentGP = this.circuitsList[this.state.selectedGP];
+        const saveBtn = document.getElementById('btn-save-bet');
+
+        if (saveBtn) {
+            if (currentGP.includes('TEST')) {
+                saveBtn.style.opacity = '0.5';
+                saveBtn.style.pointerEvents = 'none'; // Bloquea clics totalmente
+                saveBtn.innerHTML = '<i class="fas fa-ban"></i> APUESTAS CERRADAS';
+            } else {
+                saveBtn.style.opacity = '1';
+                saveBtn.style.pointerEvents = 'auto';
+                // El texto del botón se restaurará en loadUserBetForCurrentGP()
+            }
+        }
     }
 
     loadDriverSelectors() {
