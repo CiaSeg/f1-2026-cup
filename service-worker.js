@@ -1,11 +1,9 @@
-// service-worker.js
-const CACHE_NAME = 'f1-2026-cup-v1';
+const CACHE_NAME = 'f1-2026-cup-firebase-v1';
 const ASSETS_TO_CACHE = [
     './',
     './index.html',
     './style.css',
     './app.js',
-    './firebase-config.js',
     './manifest.json',
     
     // Assets principales
@@ -16,14 +14,14 @@ const ASSETS_TO_CACHE = [
     'https://fonts.googleapis.com/css2?family=Titillium+Web:wght@300;400;600;700;900&display=swap',
     'https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css',
     
-    // Firebase SDKs
-    'https://www.gstatic.com/firebasejs/9.0.0/firebase-app.js',
-    'https://www.gstatic.com/firebasejs/9.0.0/firebase-database.js'
+    // Firebase SDKs (usando la versión 10.7.1 que tienes en index.html)
+    'https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js',
+    'https://www.gstatic.com/firebasejs/10.7.1/firebase-database-compat.js'
 ];
 
 // Instalar Service Worker
 self.addEventListener('install', (event) => {
-    console.log('[Service Worker] Installing...');
+    console.log('[Service Worker] Installing Firebase version...');
     
     event.waitUntil(
         caches.open(CACHE_NAME)
@@ -40,7 +38,7 @@ self.addEventListener('install', (event) => {
 
 // Activar Service Worker
 self.addEventListener('activate', (event) => {
-    console.log('[Service Worker] Activating...');
+    console.log('[Service Worker] Activating Firebase version...');
     
     event.waitUntil(
         caches.keys().then((cacheNames) => {
@@ -59,51 +57,74 @@ self.addEventListener('activate', (event) => {
     );
 });
 
-// Interceptar peticiones de red
+// Interceptar peticiones de red - CORRECCIÓN IMPORTANTE
 self.addEventListener('fetch', (event) => {
-    // Ignorar peticiones de Firebase
-    if (event.request.url.includes('firebaseio.com') ||
-        event.request.url.includes('googleapis.com')) {
+    const url = new URL(event.request.url);
+    
+    // DEJAR PASAR las peticiones a Firebase (websockets y APIs)
+    if (url.hostname.includes('firebaseio.com') ||
+        url.hostname.includes('googleapis.com') ||
+        url.hostname.includes('gstatic.com')) {
+        // Para Firebase, no usar cache, ir directamente a red
         return;
     }
     
+    // Estrategia Cache First para los assets de la app
     event.respondWith(
         caches.match(event.request)
-            .then((response) => {
-                // Cache hit - return response
-                if (response) {
-                    return response;
+            .then((cachedResponse) => {
+                // Si encontramos en cache, devolverlo
+                if (cachedResponse) {
+                    console.log('[SW] Cache hit:', event.request.url);
+                    return cachedResponse;
                 }
                 
-                // No cache - fetch from network
+                // Si no está en cache, hacer fetch a la red
+                console.log('[SW] Fetching from network:', event.request.url);
                 return fetch(event.request)
-                    .then((response) => {
-                        // Check if we received a valid response
-                        if (!response || response.status !== 200 || response.type !== 'basic') {
-                            return response;
+                    .then((networkResponse) => {
+                        // Verificar si es una respuesta válida
+                        if (!networkResponse || networkResponse.status !== 200 || networkResponse.type !== 'basic') {
+                            return networkResponse;
                         }
                         
-                        // Clone the response
-                        const responseToCache = response.clone();
+                        // Clonar la respuesta para cachear
+                        const responseToCache = networkResponse.clone();
                         
-                        // Cache the new resource
+                        // Guardar en cache para futuras peticiones
                         caches.open(CACHE_NAME)
                             .then((cache) => {
-                                cache.put(event.request, responseToCache);
+                                // Solo cachear requests del mismo origen
+                                if (event.request.url.startsWith(self.location.origin)) {
+                                    cache.put(event.request, responseToCache);
+                                }
                             });
                         
-                        return response;
+                        return networkResponse;
                     })
-                    .catch(() => {
-                        // Fallback para imágenes
+                    .catch((error) => {
+                        console.log('[SW] Fetch failed:', error);
+                        
+                        // Fallbacks específicos
                         if (event.request.destination === 'image') {
                             return caches.match('./assets/icon-192.png');
                         }
                         
-                        // Fallback para páginas
+                        // Para páginas HTML, devolver la app shell
                         if (event.request.headers.get('accept').includes('text/html')) {
                             return caches.match('./index.html');
                         }
+                        
+                        // Para CSS y JS, intentar cache
+                        if (event.request.url.includes('.css') || event.request.url.includes('.js')) {
+                            return caches.match(event.request);
+                        }
+                        
+                        // En último caso, devolver página de error offline
+                        return new Response(
+                            '<h1>Offline</h1><p>La aplicación F1 2026 Cup está offline.</p>',
+                            { headers: { 'Content-Type': 'text/html' } }
+                        );
                     });
             })
     );
@@ -114,17 +135,27 @@ self.addEventListener('message', (event) => {
     if (event.data && event.data.type === 'SKIP_WAITING') {
         self.skipWaiting();
     }
+    
+    if (event.data && event.data.type === 'GET_CACHE') {
+        caches.keys().then(cacheNames => {
+            event.ports[0].postMessage(cacheNames);
+        });
+    }
 });
 
-// Manejar notificaciones push (opcional para futuras features)
+// Manejar notificaciones push (opcional)
 self.addEventListener('push', (event) => {
-    const title = 'F1 2026 Cup';
+    if (!event.data) return;
+    
+    const data = event.data.json();
+    const title = data.title || 'F1 2026 Cup';
     const options = {
-        body: event.data.text(),
+        body: data.body || 'Nueva actualización',
         icon: './assets/icon-192.png',
         badge: './assets/icon-72.png',
         vibrate: [200, 100, 200],
-        tag: 'f1-notification'
+        tag: 'f1-notification',
+        data: data.url || './'
     };
     
     event.waitUntil(
@@ -136,17 +167,24 @@ self.addEventListener('push', (event) => {
 self.addEventListener('notificationclick', (event) => {
     event.notification.close();
     
+    const urlToOpen = event.notification.data || './';
+    
     event.waitUntil(
-        clients.matchAll({ type: 'window' })
-            .then((clientList) => {
-                for (const client of clientList) {
-                    if (client.url === '/' && 'focus' in client) {
-                        return client.focus();
-                    }
+        clients.matchAll({
+            type: 'window',
+            includeUncontrolled: true
+        }).then((clientList) => {
+            // Buscar ventana abierta
+            for (const client of clientList) {
+                if (client.url === urlToOpen && 'focus' in client) {
+                    return client.focus();
                 }
-                if (clients.openWindow) {
-                    return clients.openWindow('./');
-                }
-            })
+            }
+            
+            // Si no hay ventana abierta, abrir una nueva
+            if (clients.openWindow) {
+                return clients.openWindow(urlToOpen);
+            }
+        })
     );
 });
