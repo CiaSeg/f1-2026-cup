@@ -241,87 +241,125 @@
                 });
         }
     </script>
-    <!-- Botón secreto para activar admin -->
-<div class="admin-activation" style="position: fixed; bottom: 20px; right: 20px; z-index: 9999;">
-    <button id="secret-admin-btn" style="
-        background: transparent;
-        border: none;
-        color: #e10600;
-        font-size: 24px;
-        cursor: pointer;
-        opacity: 0.3;
-        transition: opacity 0.3s;
-    " title="Click 3 veces para activar admin">
-        <i class="fas fa-user-secret"></i>
-    </button>
+    <!-- Añade esta sección ANTES del </body> -->
+<div id="admin-overlay" class="admin-overlay" style="display: none;">
+    <div class="admin-modal">
+        <div class="admin-modal-header">
+            <h3><i class="fas fa-lock"></i> ACCESO ADMINISTRADOR</h3>
+            <button onclick="closeAdminModal()" class="close-btn">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+        <div class="admin-modal-body">
+            <div class="admin-login">
+                <div class="form-group">
+                    <label class="form-label">CONTRASEÑA ADMIN</label>
+                    <input type="password" id="admin-password" class="form-input" 
+                           placeholder="Ingresa la contraseña">
+                </div>
+                <button onclick="loginAdmin()" class="btn btn-primary w-100 mt-20">
+                    <i class="fas fa-sign-in-alt"></i> INGRESAR COMO ADMIN
+                </button>
+                <p class="admin-hint mt-10">
+                    <i class="fas fa-info-circle"></i> La contraseña es: <strong>F12026</strong>
+                </p>
+            </div>
+            
+            <div class="admin-status" style="display: none;">
+                <div class="status-message success">
+                    <i class="fas fa-check-circle"></i>
+                    <span>Modo administrador activo</span>
+                </div>
+                <button onclick="logoutAdmin()" class="btn btn-secondary w-100 mt-20">
+                    <i class="fas fa-sign-out-alt"></i> SALIR DEL MODO ADMIN
+                </button>
+            </div>
+        </div>
+    </div>
 </div>
 
+<!-- Botón flotante para abrir admin (visible para todos) -->
+<button id="global-admin-btn" class="global-admin-btn">
+    <i class="fas fa-crown"></i>
+    <span>ADMIN</span>
+</button>
+
 <script>
-    // Código para activar modo admin
-    let adminClickCount = 0;
-    let adminClickTimer;
+    // Contraseña de admin (puedes cambiarla)
+    const ADMIN_PASSWORD = "F12026";
     
-    document.getElementById('secret-admin-btn').addEventListener('click', function() {
-        adminClickCount++;
+    // Verificar si ya está en modo admin
+    function checkAdminStatus() {
+        const isAdmin = localStorage.getItem('f1_admin') === 'true';
+        const adminTab = document.querySelector('[data-tab="admin"]');
+        const adminBtn = document.getElementById('global-admin-btn');
         
-        if (adminClickCount === 1) {
-            this.style.opacity = '0.6';
-            setTimeout(() => {
-                if (adminClickCount < 3) {
-                    adminClickCount = 0;
-                    this.style.opacity = '0.3';
-                }
-            }, 2000);
-        } else if (adminClickCount === 2) {
-            this.style.opacity = '0.9';
-        } else if (adminClickCount === 3) {
-            // Activar modo admin
-            localStorage.setItem('f1_admin', 'true');
+        if (isAdmin) {
+            // Mostrar pestaña admin
+            if (adminTab) adminTab.style.display = 'flex';
+            if (adminBtn) adminBtn.classList.add('active');
             
-            // Mostrar notificación
-            const notification = document.createElement('div');
-            notification.style.cssText = `
-                position: fixed;
-                top: 50%;
-                left: 50%;
-                transform: translate(-50%, -50%);
-                background: #e10600;
-                color: white;
-                padding: 20px 40px;
-                border-radius: 10px;
-                font-weight: bold;
-                z-index: 10000;
-                box-shadow: 0 10px 30px rgba(0,0,0,0.5);
-                animation: fadeInOut 3s ease;
-            `;
-            notification.textContent = '🔧 MODO ADMINISTRADOR ACTIVADO';
+            // Actualizar estado en el modal
+            document.querySelector('.admin-login').style.display = 'none';
+            document.querySelector('.admin-status').style.display = 'block';
+        } else {
+            // Ocultar pestaña admin
+            if (adminTab) adminTab.style.display = 'none';
+            if (adminBtn) adminBtn.classList.remove('active');
             
-            // Estilos de animación
-            const style = document.createElement('style');
-            style.textContent = `
-                @keyframes fadeInOut {
-                    0% { opacity: 0; transform: translate(-50%, -50%) scale(0.5); }
-                    20% { opacity: 1; transform: translate(-50%, -50%) scale(1); }
-                    80% { opacity: 1; transform: translate(-50%, -50%) scale(1); }
-                    100% { opacity: 0; transform: translate(-50%, -50%) scale(0.5); }
-                }
-            `;
-            document.head.appendChild(style);
-            document.body.appendChild(notification);
-            
-            // Ocultar botón secreto
-            this.style.display = 'none';
-            
-            // Recargar la página después de 2 segundos
-            setTimeout(() => {
-                location.reload();
-            }, 2000);
-            
-            // Resetear contador
-            adminClickCount = 0;
-            this.style.opacity = '0.3';
+            // Mostrar login en el modal
+            document.querySelector('.admin-login').style.display = 'block';
+            document.querySelector('.admin-status').style.display = 'none';
         }
+    }
+    
+    // Abrir modal de admin
+    document.getElementById('global-admin-btn').addEventListener('click', function() {
+        document.getElementById('admin-overlay').style.display = 'flex';
+        checkAdminStatus();
     });
+    
+    // Cerrar modal
+    function closeAdminModal() {
+        document.getElementById('admin-overlay').style.display = 'none';
+    }
+    
+    // Login admin
+    function loginAdmin() {
+        const password = document.getElementById('admin-password').value;
+        
+        if (password === ADMIN_PASSWORD) {
+            localStorage.setItem('f1_admin', 'true');
+            showNotification('✅ Modo administrador activado', 'success');
+            checkAdminStatus();
+            closeAdminModal();
+            
+            // Recargar para ver cambios
+            setTimeout(() => location.reload(), 1000);
+        } else {
+            showNotification('❌ Contraseña incorrecta', 'error');
+        }
+    }
+    
+    // Logout admin
+    function logoutAdmin() {
+        localStorage.removeItem('f1_admin');
+        showNotification('👤 Modo administrador desactivado', 'info');
+        checkAdminStatus();
+        closeAdminModal();
+        
+        // Recargar para ver cambios
+        setTimeout(() => location.reload(), 1000);
+    }
+    
+    // Función auxiliar para notificaciones
+    function showNotification(message, type) {
+        // Tu código de notificaciones existente
+        console.log(`${type}: ${message}`);
+    }
+    
+    // Verificar estado al cargar
+    window.addEventListener('load', checkAdminStatus);
 </script>
 </body>
 </html>
