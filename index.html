@@ -2,260 +2,96 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>F1 2026 Cup</title>
     
-    <!-- PWA Meta Tags -->
     <meta name="theme-color" content="#e10600">
-    <meta name="description" content="App de apuestas F1 2026 - Compite con tu pareja">
-    <link rel="manifest" href="manifest.json">
-    <link rel="icon" href="assets/icon-192.png">
+    <link rel="manifest" href="./manifest.json">
+    <link rel="icon" href="./assets/icon-192.png">
     
-    <!-- CSS -->
-    <link rel="stylesheet" href="style.css">
-    
-    <!-- Google Fonts -->
     <link href="https://fonts.googleapis.com/css2?family=Titillium+Web:wght@300;400;600;700;900&display=swap" rel="stylesheet">
-    
-    <!-- Font Awesome -->
-   
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <link rel="stylesheet" href="style.css">
     
-    <!-- Google Sheets -->
-    <script src="google-sheets-service.js"></script>
-    <script src="app.js"></script>
+    <link rel="stylesheet" href="./style.css">
+    
+    <script src="./google-sheets-service.js" defer></script>
+    <script src="./app.js" defer></script>
 </head>
 <body>
-    <!-- Loading Screen -->
     <div id="loading" class="loading-screen">
         <div class="loading-content">
-            <div class="f1-loader">
-                <div class="f1-car"></div>
-                <div class="track"></div>
-            </div>
-            <h2>F1 2026 Cup</h2>
-            <p>Cargando...</p>
+            <h1>F1 <span>2026</span></h1>
+            <div class="spinner"></div>
+            <p>Cargando boxes...</p>
         </div>
     </div>
 
-    <!-- Main App (hidden initially) -->
     <div id="app" class="app-container" style="display: none;">
-        <!-- Landing Page -->
         <div id="landing-page" class="page active">
             <div class="landing-container">
-                <div class="f1-title">
+                <div class="logo-container">
                     <h1>F1 <span>2026</span></h1>
-                    <h2>CUP</h2>
+                    <h3 class="subtitle">COUPLE CUP</h3>
                 </div>
                 
-                <div class="landing-card">
-                    <h3><i class="fas fa-helmet-safety"></i> SELECCIONA PILOTO</h3>
-                    
+                <div class="mobile-card selection-card">
+                    <p class="instruction-text">¿Quién eres hoy?</p>
                     <div class="player-buttons">
                         <button id="btn-varo" class="player-btn varo-btn">
-                            <i class="fas fa-mars"></i>
-                            <span>VARO</span>
+                            <i class="fas fa-helmet-safety"></i> VARO
                         </button>
-                        
                         <button id="btn-cia" class="player-btn cia-btn">
-                            <i class="fas fa-venus"></i>
-                            <span>CÍA</span>
+                            <i class="fas fa-helmet-safety"></i> CÍA
                         </button>
                     </div>
-                    
-                    <div class="landing-stats">
-                        <div class="stat">
-                            <span id="stats-varo">0</span>
-                            <small>VARO</small>
-                        </div>
-                        <div class="vs">VS</div>
-                        <div class="stat">
-                            <span id="stats-cia">0</span>
-                            <small>CÍA</small>
-                        </div>
-                    </div>
-                </div>
-                
-                <!-- Admin Section (Collapsed) -->
-                <div class="admin-section">
-                    <button id="toggle-admin" class="admin-toggle">
-                        <i class="fas fa-lock"></i> ZONA FIA
-                    </button>
-                    
-                    <div id="admin-panel" class="admin-panel" style="display: none;">
-                        <input type="password" id="admin-password" placeholder="Clave admin123" class="admin-input">
-                        <div id="admin-content" style="display: none;">
-                            <h4>Publicar Resultados Oficiales</h4>
-                            <select id="admin-gp-select" class="admin-select"></select>
-                            
-                            <div class="admin-podium">
-                                <div class="admin-podium-item">
-                                    <label>🥇 P1</label>
-                                    <select id="admin-p1" class="admin-driver-select"></select>
-                                </div>
-                                <div class="admin-podium-item">
-                                    <label>🥈 P2</label>
-                                    <select id="admin-p2" class="admin-driver-select"></select>
-                                </div>
-                                <div class="admin-podium-item">
-                                    <label>🥉 P3</label>
-                                    <select id="admin-p3" class="admin-driver-select"></select>
-                                </div>
-                            </div>
-                            
-                            <button id="btn-publish" class="admin-publish-btn">
-                                <i class="fas fa-paper-plane"></i> PUBLICAR RESULTADOS
-                            </button>
-                        </div>
-                    </div>
                 </div>
             </div>
         </div>
 
-        <!-- Main App Page -->
         <div id="main-page" class="page">
-            <!-- Header -->
             <header class="app-header">
-                <div class="header-left">
-                    <button id="btn-back" class="back-btn">
-                        <i class="fas fa-arrow-left"></i>
-                    </button>
-                    <h2 id="current-user">VARO</h2>
+                <button id="btn-back" class="icon-btn"><i class="fas fa-chevron-left"></i></button>
+                <div class="header-info">
+                    <span id="current-user" class="user-badge"></span>
                 </div>
-                <div class="header-right">
-                    <button id="btn-refresh" class="refresh-btn">
-                        <i class="fas fa-redo"></i>
-                    </button>
-                </div>
+                <button id="btn-refresh" class="icon-btn"><i class="fas fa-sync-alt"></i></button>
             </header>
-<div class="tabs-container">
-    <div class="tabs">
-        <button class="tab-btn active" data-tab="race">
-            <i class="fas fa-flag-checkered"></i>
-            <span>CARRERA</span>
-        </button>
-        <button class="tab-btn" data-tab="season">
-            <i class="fas fa-globe"></i>
-            <span>MUNDIAL</span>
-        </button>
-        <button class="tab-btn" data-tab="points">
-            <i class="fas fa-chart-line"></i>
-            <span>PUNTOS</span>
-        </button>
-    </div>
-</div>
 
-<div class="tab-content">
-    <div id="tab-race" class="tab-pane active">
-        
-        <div id="last-race-card" class="mobile-card" style="display: none;">
-            <p class="sub-text">🏁 ANTERIOR CARRERA</p>
-            <h3 id="last-race-name" style="text-align: center; margin: 10px 0;"></h3>
-            <div class="last-race-content">
-                <div class="podium-item">
-                    <p class="sub-text">2º</p>
-                    <img id="last-p2-img" class="driver-img" src="" alt="P2">
-                    <span id="last-p2-name"></span>
+            <nav class="tabs-container">
+                <div class="tabs">
+                    <button class="tab-btn active" data-tab="race">CARRERA</button>
+                    <button class="tab-btn" data-tab="season">MUNDIAL</button>
+                    <button class="tab-btn" data-tab="points">PUNTOS</button>
                 </div>
-                <div class="podium-item">
-                    <p class="sub-text">GANADOR</p>
-                    <img id="last-p1-img" class="driver-img" src="" alt="P1">
-                    <span id="last-p1-name"></span>
-                </div>
-                <div class="podium-item">
-                    <p class="sub-text">3º</p>
-                    <img id="last-p3-img" class="driver-img" src="" alt="P3">
-                    <span id="last-p3-name"></span>
-                </div>
-            </div>
-        </div>
+            </nav>
 
-        <div class="mobile-card">
-            <p class="sub-text">📅 PRÓXIMO GP</p>
-            <select id="gp-select" class="gp-select">
-                </select>
-            
-            <div class="circuit-info">
-                <div class="circuit-header" style="display: flex; align-items: center; gap: 15px; margin-bottom: 10px;">
-                    <img id="circuit-flag" src="" alt="Bandera" class="flag-img" style="width: 60px;">
-                    <h4 id="circuit-name" style="margin:0;"></h4>
-                </div>
-                <div class="circuit-map" style="text-align: center;">
-                    <img id="circuit-map" src="" alt="Mapa" class="map-img" style="width: 100%; max-width: 300px;">
-                </div>
-            </div>
-        </div>
-
-        <div class="mobile-card">
-            <p class="sub-text">🏎️ TU ESTRATEGIA</p>
-            <div class="podium-selection" style="display: flex; justify-content: space-between; gap: 10px; margin-top: 15px;">
-                <div class="selection-item" style="flex:1; text-align: center;">
-                    <label>🥇</label>
-                    <select id="select-p1" class="driver-select" style="width:100%; margin-bottom: 5px;"></select>
-                    <img id="preview-p1" src="" alt="" class="driver-preview-img" style="width: 100%; border-radius: 50%;">
-                </div>
-                <div class="selection-item" style="flex:1; text-align: center;">
-                    <label>🥈</label>
-                    <select id="select-p2" class="driver-select" style="width:100%; margin-bottom: 5px;"></select>
-                    <img id="preview-p2" src="" alt="" class="driver-preview-img" style="width: 100%; border-radius: 50%;">
-                </div>
-                <div class="selection-item" style="flex:1; text-align: center;">
-                    <label>🥉</label>
-                    <select id="select-p3" class="driver-select" style="width:100%; margin-bottom: 5px;"></select>
-                    <img id="preview-p3" src="" alt="" class="driver-preview-img" style="width: 100%; border-radius: 50%;">
-                </div>
-            </div>
-            
-            <button id="btn-submit-bet" class="player-btn varo-btn" style="margin-top: 20px;">
-                ENVIAR APUESTA
-            </button>
+            <main class="tab-content">
+                <div id="tab-race" class="tab-pane active">
+                    </div>
+                <div id="tab-season" class="tab-pane">
+                    </div>
+                <div id="tab-points" class="tab-pane">
+                    </div>
+            </main>
         </div>
     </div>
 
-    </div>
-
-    <!-- Modals -->
-    <div id="modal-success" class="modal">
-        <div class="modal-content success">
-            <div class="modal-icon">
-                <i class="fas fa-check-circle"></i>
-            </div>
-            <h3 id="modal-title">¡Éxito!</h3>
+    <div id="notification-modal" class="modal">
+        <div class="modal-content">
+            <div id="modal-icon"></div>
             <p id="modal-message"></p>
-            <button class="modal-close-btn">CONTINUAR</button>
-        </div>
-    </div>
-    
-    <div id="modal-error" class="modal">
-        <div class="modal-content error">
-            <div class="modal-icon">
-                <i class="fas fa-exclamation-circle"></i>
-            </div>
-            <h3>Error</h3>
-            <p id="error-message"></p>
-            <button class="modal-close-btn">ENTENDIDO</button>
+            <button onclick="document.getElementById('notification-modal').style.display='none'">OK</button>
         </div>
     </div>
 
-    <!-- Scripts -->
-    <script src="firebase-config.js"></script>
-    <script src="app.js"></script>
-    
-    <!-- Service Worker -->
     <script>
         if ('serviceWorker' in navigator) {
-            window.addEventListener('load', function() {
-                navigator.serviceWorker.register('service-worker.js')
-                    .then(function(registration) {
-                        console.log('ServiceWorker registrado:', registration.scope);
-                    })
-                    .catch(function(error) {
-                        console.log('ServiceWorker registro fallido:', error);
-                    });
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('./service-worker.js')
+                    .then(reg => console.log('SW registrado'))
+                    .catch(err => console.log('Error SW', err));
             });
         }
     </script>
-</script>
 </body>
 </html>
