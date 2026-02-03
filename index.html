@@ -241,87 +241,101 @@
                 });
         }
     </script>
-    <!-- Botón secreto para activar admin -->
-<div class="admin-activation" style="position: fixed; bottom: 20px; right: 20px; z-index: 9999;">
-    <button id="secret-admin-btn" style="
-        background: transparent;
+    <!-- Panel de activación admin visible -->
+<div class="admin-panel" style="
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+    z-index: 9999;
+    background: rgba(21, 21, 30, 0.95);
+    border: 2px solid #e10600;
+    border-radius: 10px;
+    padding: 15px;
+    box-shadow: 0 5px 20px rgba(0,0,0,0.5);
+">
+    <p style="color: #e10600; font-weight: bold; margin-bottom: 10px; font-size: 12px;">
+        <i class="fas fa-cog"></i> ACCESO ADMIN
+    </p>
+    <button onclick="activateAdmin()" style="
+        background: #e10600;
+        color: white;
         border: none;
-        color: #e10600;
-        font-size: 24px;
+        padding: 8px 15px;
+        border-radius: 5px;
+        font-weight: bold;
         cursor: pointer;
-        opacity: 0.3;
-        transition: opacity 0.3s;
-    " title="Click 3 veces para activar admin">
-        <i class="fas fa-user-secret"></i>
+        width: 100%;
+        transition: background 0.3s;
+    ">
+        ACTIVAR ADMIN
+    </button>
+    <button onclick="deactivateAdmin()" style="
+        background: #38383f;
+        color: white;
+        border: none;
+        padding: 8px 15px;
+        border-radius: 5px;
+        font-weight: bold;
+        cursor: pointer;
+        width: 100%;
+        margin-top: 8px;
+        transition: background 0.3s;
+    ">
+        DESACTIVAR
     </button>
 </div>
 
 <script>
-    // Código para activar modo admin
-    let adminClickCount = 0;
-    let adminClickTimer;
+    function activateAdmin() {
+        localStorage.setItem('f1_admin', 'true');
+        showMessage('🔧 MODO ADMIN ACTIVADO', '#e10600');
+        setTimeout(() => location.reload(), 1500);
+    }
     
-    document.getElementById('secret-admin-btn').addEventListener('click', function() {
-        adminClickCount++;
+    function deactivateAdmin() {
+        localStorage.removeItem('f1_admin');
+        showMessage('👤 MODO USUARIO ACTIVADO', '#2ecc71');
+        setTimeout(() => location.reload(), 1500);
+    }
+    
+    function showMessage(text, color) {
+        const msg = document.createElement('div');
+        msg.textContent = text;
+        msg.style.cssText = `
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: ${color};
+            color: white;
+            padding: 20px 40px;
+            border-radius: 10px;
+            font-weight: bold;
+            z-index: 10000;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+            animation: fadeInOut 2s ease;
+        `;
         
-        if (adminClickCount === 1) {
-            this.style.opacity = '0.6';
-            setTimeout(() => {
-                if (adminClickCount < 3) {
-                    adminClickCount = 0;
-                    this.style.opacity = '0.3';
-                }
-            }, 2000);
-        } else if (adminClickCount === 2) {
-            this.style.opacity = '0.9';
-        } else if (adminClickCount === 3) {
-            // Activar modo admin
-            localStorage.setItem('f1_admin', 'true');
-            
-            // Mostrar notificación
-            const notification = document.createElement('div');
-            notification.style.cssText = `
-                position: fixed;
-                top: 50%;
-                left: 50%;
-                transform: translate(-50%, -50%);
-                background: #e10600;
-                color: white;
-                padding: 20px 40px;
-                border-radius: 10px;
-                font-weight: bold;
-                z-index: 10000;
-                box-shadow: 0 10px 30px rgba(0,0,0,0.5);
-                animation: fadeInOut 3s ease;
-            `;
-            notification.textContent = '🔧 MODO ADMINISTRADOR ACTIVADO';
-            
-            // Estilos de animación
-            const style = document.createElement('style');
-            style.textContent = `
-                @keyframes fadeInOut {
-                    0% { opacity: 0; transform: translate(-50%, -50%) scale(0.5); }
-                    20% { opacity: 1; transform: translate(-50%, -50%) scale(1); }
-                    80% { opacity: 1; transform: translate(-50%, -50%) scale(1); }
-                    100% { opacity: 0; transform: translate(-50%, -50%) scale(0.5); }
-                }
-            `;
-            document.head.appendChild(style);
-            document.body.appendChild(notification);
-            
-            // Ocultar botón secreto
-            this.style.display = 'none';
-            
-            // Recargar la página después de 2 segundos
-            setTimeout(() => {
-                location.reload();
-            }, 2000);
-            
-            // Resetear contador
-            adminClickCount = 0;
-            this.style.opacity = '0.3';
-        }
-    });
+        const style = document.createElement('style');
+        style.textContent = `
+            @keyframes fadeInOut {
+                0% { opacity: 0; transform: translate(-50%, -50%) scale(0.8); }
+                20% { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+                80% { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+                100% { opacity: 0; transform: translate(-50%, -50%) scale(0.8); }
+            }
+        `;
+        
+        document.head.appendChild(style);
+        document.body.appendChild(msg);
+        
+        setTimeout(() => msg.remove(), 2000);
+    }
+    
+    // Ocultar panel si ya eres admin
+    if (localStorage.getItem('f1_admin') === 'true') {
+        document.querySelector('.admin-panel').style.display = 'none';
+    }
 </script>
 </body>
 </html>
