@@ -1,10 +1,6 @@
 // app.js - VERSIÓN COMPLETA CON TODAS LAS FUNCIONES
 class F1CupApp {
-        constructor() {
-        
-        // ELIMINA estas líneas:
-        // this.sheetId = "1MH-qdPD-urFE5zO-_14nPZw54nTr1zTiGV3hpBHpwbw";
-        // this.apiKey = "AIzaSyCoUGiDREyQNzMWggWKD9D_k6qA-FEk4go";
+    constructor() {
         
         // Añade referencia a Firebase
         this.db = window.db; // Accede a la instancia global de Firebase
@@ -250,290 +246,370 @@ class F1CupApp {
     // ==================== FIREBASE METHODS ====================
     
     async loadAllData() {
-    console.log('📥 Conectando con Firebase...');
-    
-    try {
-        // Escuchar apuestas en tiempo real
-        db.ref('bets').on('value', (snapshot) => {
-            const data = snapshot.val();
-            if (data) {
-                // Convertir objeto Firebase en array
-                this.sheetsData.bets = Object.keys(data).map(key => ({
-                    id: key, // Guardamos el ID de Firebase
-                    ...data[key]
-                }));
-            } else {
-                this.sheetsData.bets = [];
-            }
-            console.log(`✅ ${this.sheetsData.bets.length} apuestas cargadas`);
-            this.updateUI(); // Refrescar UI automáticamente
-        });
-
-        // Escuchar resultados en tiempo real
-        db.ref('results').on('value', (snapshot) => {
-            const data = snapshot.val();
-            if (data) {
-                this.sheetsData.results = Object.keys(data).map(key => ({
-                    id: key,
-                    ...data[key]
-                }));
-                this.processGPResults();
-                this.calculateAllPoints();
-            } else {
-                this.sheetsData.results = [];
-            }
-            console.log(`✅ ${this.sheetsData.results.length} resultados cargados`);
-        });
-
-        // Escuchar apuestas de mundial
-        db.ref('seasonBets').on('value', (snapshot) => {
-            const data = snapshot.val();
-            if (data) {
-                this.sheetsData.seasonBets = Object.keys(data).map(key => ({
-                    id: key,
-                    ...data[key]
-                }));
-            } else {
-                this.sheetsData.seasonBets = [];
-            }
-            console.log(`✅ ${this.sheetsData.seasonBets.length} apuestas mundial cargadas`);
-        });
-
-        // Escuchar último número
-        db.ref('lastNumber').on('value', (snapshot) => {
-            const data = snapshot.val();
-            if (data) {
-                this.sheetsData.lastNumberResults = data;
-            } else {
-                this.sheetsData.lastNumberResults = {};
-            }
-            console.log(`✅ Último número cargado`);
-        });
-
-        this.state.dataLoaded = true;
+        console.log('📥 Conectando con Firebase...');
         
-    } catch (error) {
-        console.error('❌ Error cargando datos de Firebase:', error);
-        this.showNotification('⚠️ Error conectando con Firebase', 'error');
+        try {
+            // Escuchar apuestas en tiempo real
+            this.db.ref('bets').on('value', (snapshot) => {
+                const data = snapshot.val();
+                if (data) {
+                    // Convertir objeto Firebase en array
+                    this.sheetsData.bets = Object.keys(data).map(key => ({
+                        id: key, // Guardamos el ID de Firebase
+                        ...data[key]
+                    }));
+                    console.log(`✅ ${this.sheetsData.bets.length} apuestas cargadas`);
+                    
+                    // Actualizar UI con datos de apuestas
+                    this.loadLastUserBet();
+                    this.loadUserBetForCurrentGP();
+                } else {
+                    this.sheetsData.bets = [];
+                }
+            });
+
+            // Escuchar resultados en tiempo real
+            this.db.ref('results').on('value', (snapshot) => {
+                const data = snapshot.val();
+                if (data) {
+                    this.sheetsData.results = Object.keys(data).map(key => ({
+                        id: key,
+                        ...data[key]
+                    }));
+                    this.processGPResults();
+                    this.calculateAllPoints();
+                    console.log(`✅ ${this.sheetsData.results.length} resultados cargados`);
+                    
+                    // Actualizar pestaña de puntos si está activa
+                    if (this.state.currentTab === 'points') {
+                        this.loadPointsTab();
+                    }
+                } else {
+                    this.sheetsData.results = [];
+                }
+            });
+
+            // Escuchar apuestas de mundial
+            this.db.ref('seasonBets').on('value', (snapshot) => {
+                const data = snapshot.val();
+                if (data) {
+                    this.sheetsData.seasonBets = Object.keys(data).map(key => ({
+                        id: key,
+                        ...data[key]
+                    }));
+                    console.log(`✅ ${this.sheetsData.seasonBets.length} apuestas mundial cargadas`);
+                    
+                    // Actualizar pestaña de temporada si está activa
+                    if (this.state.currentTab === 'season') {
+                        this.loadExistingSeasonBet();
+                    }
+                } else {
+                    this.sheetsData.seasonBets = [];
+                }
+            });
+
+            // Escuchar último número
+            this.db.ref('lastNumber').on('value', (snapshot) => {
+                const data = snapshot.val();
+                if (data) {
+                    this.sheetsData.lastNumberResults = data;
+                    console.log('✅ Último número cargado');
+                    
+                    // Actualizar pestaña de último número si está activa
+                    if (this.state.currentTab === 'lastNumber') {
+                        this.loadLastNumberTab();
+                    }
+                } else {
+                    this.sheetsData.lastNumberResults = {};
+                }
+            });
+
+            this.state.dataLoaded = true;
+            
+        } catch (error) {
+            console.error('❌ Error cargando datos de Firebase:', error);
+            this.showNotification('⚠️ Error conectando con Firebase', 'error');
+        }
     }
-}
 
     async saveCurrentBet() {
-    const currentGP = this.circuitsList[this.state.selectedGP];
-    const user = this.state.currentUser;
-    const selected = this.state.selectedPodium;
-    
-    if (!selected[0] || !selected[1] || !selected[2]) {
-        this.showNotification('❌ Debes seleccionar 3 pilotos', 'error');
-        return;
-    }
-    
-    if (selected[0] === selected[1] || selected[0] === selected[2] || selected[1] === selected[2]) {
-        this.showNotification('❌ Los pilotos deben ser diferentes', 'error');
-        return;
-    }
-    
-    // Crear ID único (usuario + carrera sin espacios)
-    const betId = `${user}_${currentGP.replace(/[^a-zA-Z0-9]/g, '_')}`;
-    
-    const betData = {
-        Carrera: currentGP,
-        Jugador: user,
-        P1: selected[0],
-        P2: selected[1],
-        P3: selected[2],
-        Fecha: new Date().toLocaleString('es-ES'),
-        timestamp: Date.now()
-    };
-    
-    try {
-        // Guardar en Firebase (sobrescribe si ya existe)
-        await db.ref(`bets/${betId}`).set(betData);
+        const currentGP = this.circuitsList[this.state.selectedGP];
+        const user = this.state.currentUser;
+        const selected = this.state.selectedPodium;
         
-        // Actualizar datos locales
-        const existingIndex = this.sheetsData.bets.findIndex(bet => 
-            bet.Carrera === currentGP && bet.Jugador === user
-        );
+        console.log('💾 Intentando guardar apuesta:', { currentGP, user, selected });
         
-        if (existingIndex !== -1) {
-            this.sheetsData.bets[existingIndex] = { id: betId, ...betData };
-            this.showNotification('✅ Apuesta actualizada en tiempo real', 'success');
-        } else {
-            this.sheetsData.bets.push({ id: betId, ...betData });
-            this.showNotification('✅ Apuesta guardada en tiempo real', 'success');
-        }
-        
-        this.loadLastUserBet();
-        this.loadUserBetForCurrentGP();
-        
-    } catch (error) {
-        console.error('❌ Error guardando en Firebase:', error);
-        this.showNotification('❌ Error guardando apuesta', 'error');
-    }
-}
-async saveSeasonBet() {
-    const user = this.state.currentUser;
-    
-    const seasonData = {
-        Jugador: user,
-        D_P1: document.getElementById('season-p1').value,
-        D_P2: document.getElementById('season-p2').value,
-        D_P3: document.getElementById('season-p3').value,
-        C_P1: document.getElementById('season-c1').value,
-        C_P2: document.getElementById('season-c2').value,
-        C_P3: document.getElementById('season-c3').value,
-        Fecha: new Date().toLocaleString('es-ES'),
-        timestamp: Date.now()
-    };
-    
-    const drivers = [seasonData.D_P1, seasonData.D_P2, seasonData.D_P3];
-    const constructors = [seasonData.C_P1, seasonData.C_P2, seasonData.C_P3];
-    
-    if (drivers.includes('') || constructors.includes('')) {
-        this.showNotification('❌ Debes completar todas las selecciones', 'error');
-        return;
-    }
-    
-    if (new Set(drivers).size !== 3) {
-        this.showNotification('❌ Los pilotos deben ser diferentes', 'error');
-        return;
-    }
-    
-    if (new Set(constructors).size !== 3) {
-        this.showNotification('❌ Los constructores deben ser diferentes', 'error');
-        return;
-    }
-    
-    const seasonId = `${user}_season`;
-    
-    try {
-        await db.ref(`seasonBets/${seasonId}`).set(seasonData);
-        
-        const existingIndex = this.sheetsData.seasonBets.findIndex(bet => bet.Jugador === user);
-        
-        if (existingIndex !== -1) {
-            this.sheetsData.seasonBets[existingIndex] = { id: seasonId, ...seasonData };
-            this.showNotification('✅ Apuesta mundial actualizada en tiempo real', 'success');
-        } else {
-            this.sheetsData.seasonBets.push({ id: seasonId, ...seasonData });
-            this.showNotification('✅ Apuesta mundial guardada en tiempo real', 'success');
-        }
-        
-    } catch (error) {
-        console.error('❌ Error guardando apuesta mundial:', error);
-        this.showNotification('❌ Error guardando apuesta mundial', 'error');
-    }
-}
-async publishFullResults() {
-    const gpIndex = document.getElementById('admin-gp-select').value;
-    const circuit = this.circuitsList[gpIndex];
-    
-    const results = {};
-    const resultData = {
-        Carrera: circuit,
-        timestamp: Date.now(),
-        publicadoPor: this.state.currentUser,
-        fechaPublicacion: new Date().toLocaleString('es-ES')
-    };
-    
-    // Recoger resultados de P1 a P22
-    for (let i = 1; i <= 22; i++) {
-        const select = document.querySelector(`[data-position="${i}"]`);
-        const driver = select ? select.value : '';
-        
-        if (!driver) {
-            this.showNotification(`❌ Falta seleccionar piloto para P${i}`, 'error');
+        if (!selected[0] || !selected[1] || !selected[2]) {
+            this.showNotification('❌ Debes seleccionar 3 pilotos', 'error');
             return;
         }
         
-        results[i] = driver;
-        resultData[`P${i}`] = driver;
-    }
-    
-    const drivers = Object.values(results);
-    if (new Set(drivers).size !== 22) {
-        this.showNotification('❌ Todos los pilotos deben ser diferentes', 'error');
-        return;
-    }
-    
-    const resultId = `result_${circuit.replace(/[^a-zA-Z0-9]/g, '_')}`;
-    
-    try {
-        await db.ref(`results/${resultId}`).set(resultData);
-        
-        this.state.gpResults[circuit] = results;
-        
-        // Actualizar localmente
-        const existingIndex = this.sheetsData.results.findIndex(r => r.Carrera === circuit);
-        if (existingIndex !== -1) {
-            this.sheetsData.results[existingIndex] = { id: resultId, ...resultData };
-        } else {
-            this.sheetsData.results.push({ id: resultId, ...resultData });
+        if (selected[0] === selected[1] || selected[0] === selected[2] || selected[1] === selected[2]) {
+            this.showNotification('❌ Los pilotos deben ser diferentes', 'error');
+            return;
         }
         
-        this.showNotification('✅ Resultados publicados en tiempo real', 'success');
+        // Crear ID único (usuario + carrera sin espacios)
+        const betId = `${user.replace(/\s+/g, '_')}_${currentGP.replace(/[^a-zA-Z0-9]/g, '_')}`;
         
-        this.calculateAllPoints();
+        const betData = {
+            Carrera: currentGP,
+            Jugador: user,
+            P1: selected[0],
+            P2: selected[1],
+            P3: selected[2],
+            Fecha: new Date().toLocaleString('es-ES'),
+            timestamp: Date.now()
+        };
         
-        if (this.state.currentTab === 'points') {
-            this.loadPointsTab();
+        console.log('📤 Enviando a Firebase - ID:', betId, 'Datos:', betData);
+        
+        try {
+            // Guardar en Firebase (sobrescribe si ya existe)
+            await this.db.ref(`bets/${betId}`).set(betData);
+            
+            console.log('✅ Apuesta guardada exitosamente en Firebase');
+            
+            // Actualizar datos locales
+            const existingIndex = this.sheetsData.bets.findIndex(bet => 
+                bet.Carrera === currentGP && bet.Jugador === user
+            );
+            
+            if (existingIndex !== -1) {
+                this.sheetsData.bets[existingIndex] = { id: betId, ...betData };
+                this.showNotification('✅ Apuesta actualizada en tiempo real', 'success');
+            } else {
+                this.sheetsData.bets.push({ id: betId, ...betData });
+                this.showNotification('✅ Apuesta guardada en tiempo real', 'success');
+            }
+            
+            this.loadLastUserBet();
+            this.loadUserBetForCurrentGP();
+            
+        } catch (error) {
+            console.error('❌ Error guardando en Firebase:', error);
+            console.error('Detalles del error:', error.message, error.stack);
+            this.showNotification('❌ Error guardando apuesta: ' + error.message, 'error');
+        }
+    }
+
+    async saveSeasonBet() {
+        const user = this.state.currentUser;
+        
+        const seasonData = {
+            Jugador: user,
+            D_P1: document.getElementById('season-p1').value,
+            D_P2: document.getElementById('season-p2').value,
+            D_P3: document.getElementById('season-p3').value,
+            C_P1: document.getElementById('season-c1').value,
+            C_P2: document.getElementById('season-c2').value,
+            C_P3: document.getElementById('season-c3').value,
+            Fecha: new Date().toLocaleString('es-ES'),
+            timestamp: Date.now()
+        };
+        
+        const drivers = [seasonData.D_P1, seasonData.D_P2, seasonData.D_P3];
+        const constructors = [seasonData.C_P1, seasonData.C_P2, seasonData.C_P3];
+        
+        if (drivers.includes('') || constructors.includes('')) {
+            this.showNotification('❌ Debes completar todas las selecciones', 'error');
+            return;
         }
         
-    } catch (error) {
-        console.error('❌ Error publicando resultados:', error);
-        this.showNotification('❌ Error publicando resultados', 'error');
-    }
-}
-async saveLastNumber() {
-    const gpIndex = document.getElementById('last-number-gp').value;
-    const circuit = this.circuitsList[gpIndex];
-    const lastNumber = parseInt(document.getElementById('last-number-input').value);
-    
-    if (!lastNumber || lastNumber < 1 || lastNumber > 22) {
-        this.showNotification('❌ El último número debe estar entre 1 y 22', 'error');
-        return;
-    }
-    
-    const lastNumberId = `lastnum_${circuit.replace(/[^a-zA-Z0-9]/g, '_')}`;
-    
-    const data = {
-        carrera: circuit,
-        numero: lastNumber,
-        jugador: this.state.currentUser,
-        fecha: new Date().toLocaleString('es-ES'),
-        timestamp: Date.now()
-    };
-    
-    try {
-        await db.ref(`lastNumber/${lastNumberId}`).set(data);
+        if (new Set(drivers).size !== 3) {
+            this.showNotification('❌ Los pilotos deben ser diferentes', 'error');
+            return;
+        }
         
-        this.sheetsData.lastNumberResults[circuit] = lastNumber;
-        this.showNotification('✅ Último número guardado en tiempo real', 'success');
+        if (new Set(constructors).size !== 3) {
+            this.showNotification('❌ Los constructores deben ser diferentes', 'error');
+            return;
+        }
         
-    } catch (error) {
-        console.error('❌ Error guardando último número:', error);
-        this.showNotification('❌ Error guardando último número', 'error');
+        const seasonId = `${user}_season`;
+        
+        try {
+            await this.db.ref(`seasonBets/${seasonId}`).set(seasonData);
+            
+            const existingIndex = this.sheetsData.seasonBets.findIndex(bet => bet.Jugador === user);
+            
+            if (existingIndex !== -1) {
+                this.sheetsData.seasonBets[existingIndex] = { id: seasonId, ...seasonData };
+                this.showNotification('✅ Apuesta mundial actualizada en tiempo real', 'success');
+            } else {
+                this.sheetsData.seasonBets.push({ id: seasonId, ...seasonData });
+                this.showNotification('✅ Apuesta mundial guardada en tiempo real', 'success');
+            }
+            
+        } catch (error) {
+            console.error('❌ Error guardando apuesta mundial:', error);
+            this.showNotification('❌ Error guardando apuesta mundial', 'error');
+        }
     }
-}
-async refreshData() {
-    const refreshBtn = document.getElementById('btn-refresh');
-    if (refreshBtn) {
-        refreshBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
-        refreshBtn.disabled = true;
+
+    async publishFullResults() {
+        const gpIndex = document.getElementById('admin-gp-select').value;
+        const circuit = this.circuitsList[gpIndex];
+        
+        const results = {};
+        const resultData = {
+            Carrera: circuit,
+            timestamp: Date.now(),
+            publicadoPor: this.state.currentUser,
+            fechaPublicacion: new Date().toLocaleString('es-ES')
+        };
+        
+        // Recoger resultados de P1 a P22
+        for (let i = 1; i <= 22; i++) {
+            const select = document.querySelector(`[data-position="${i}"]`);
+            const driver = select ? select.value : '';
+            
+            if (!driver) {
+                this.showNotification(`❌ Falta seleccionar piloto para P${i}`, 'error');
+                return;
+            }
+            
+            results[i] = driver;
+            resultData[`P${i}`] = driver;
+        }
+        
+        const drivers = Object.values(results);
+        if (new Set(drivers).size !== 22) {
+            this.showNotification('❌ Todos los pilotos deben ser diferentes', 'error');
+            return;
+        }
+        
+        const resultId = `result_${circuit.replace(/[^a-zA-Z0-9]/g, '_')}`;
+        
+        try {
+            await this.db.ref(`results/${resultId}`).set(resultData);
+            
+            this.state.gpResults[circuit] = results;
+            
+            // Actualizar localmente
+            const existingIndex = this.sheetsData.results.findIndex(r => r.Carrera === circuit);
+            if (existingIndex !== -1) {
+                this.sheetsData.results[existingIndex] = { id: resultId, ...resultData };
+            } else {
+                this.sheetsData.results.push({ id: resultId, ...resultData });
+            }
+            
+            this.showNotification('✅ Resultados publicados en tiempo real', 'success');
+            
+            this.calculateAllPoints();
+            
+            if (this.state.currentTab === 'points') {
+                this.loadPointsTab();
+            }
+            
+        } catch (error) {
+            console.error('❌ Error publicando resultados:', error);
+            this.showNotification('❌ Error publicando resultados', 'error');
+        }
     }
-    
-    // Forzar recarga de datos escuchando de nuevo
-    this.loadAllData();
-    
-    this.showNotification('✅ Datos sincronizados', 'success');
-    
-    if (refreshBtn) {
-        setTimeout(() => {
-            refreshBtn.innerHTML = '<i class="fas fa-redo"></i>';
-            refreshBtn.disabled = false;
-        }, 1000);
+
+    async saveLastNumber() {
+        const gpIndex = document.getElementById('last-number-gp').value;
+        const circuit = this.circuitsList[gpIndex];
+        const lastNumber = parseInt(document.getElementById('last-number-input').value);
+        
+        if (!lastNumber || lastNumber < 1 || lastNumber > 22) {
+            this.showNotification('❌ El último número debe estar entre 1 y 22', 'error');
+            return;
+        }
+        
+        const lastNumberId = `lastnum_${circuit.replace(/[^a-zA-Z0-9]/g, '_')}`;
+        
+        const data = {
+            carrera: circuit,
+            numero: lastNumber,
+            jugador: this.state.currentUser,
+            fecha: new Date().toLocaleString('es-ES'),
+            timestamp: Date.now()
+        };
+        
+        try {
+            await this.db.ref(`lastNumber/${lastNumberId}`).set(data);
+            
+            this.sheetsData.lastNumberResults[circuit] = lastNumber;
+            this.showNotification('✅ Último número guardado en tiempo real', 'success');
+            
+        } catch (error) {
+            console.error('❌ Error guardando último número:', error);
+            this.showNotification('❌ Error guardando último número', 'error');
+        }
     }
-}
+
+    async refreshData() {
+        const refreshBtn = document.getElementById('btn-refresh');
+        if (refreshBtn) {
+            refreshBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+            refreshBtn.disabled = true;
+        }
+        
+        // Forzar recarga manual de todos los datos
+        try {
+            // Obtener datos directamente sin escuchar
+            const betsSnapshot = await this.db.ref('bets').once('value');
+            const betsData = betsSnapshot.val();
+            if (betsData) {
+                this.sheetsData.bets = Object.keys(betsData).map(key => ({
+                    id: key,
+                    ...betsData[key]
+                }));
+                console.log(`🔄 ${this.sheetsData.bets.length} apuestas recargadas`);
+            }
+            
+            const resultsSnapshot = await this.db.ref('results').once('value');
+            const resultsData = resultsSnapshot.val();
+            if (resultsData) {
+                this.sheetsData.results = Object.keys(resultsData).map(key => ({
+                    id: key,
+                    ...resultsData[key]
+                }));
+                this.processGPResults();
+                this.calculateAllPoints();
+            }
+            
+            const seasonBetsSnapshot = await this.db.ref('seasonBets').once('value');
+            const seasonBetsData = seasonBetsSnapshot.val();
+            if (seasonBetsData) {
+                this.sheetsData.seasonBets = Object.keys(seasonBetsData).map(key => ({
+                    id: key,
+                    ...seasonBetsData[key]
+                }));
+            }
+            
+            const lastNumberSnapshot = await this.db.ref('lastNumber').once('value');
+            const lastNumberData = lastNumberSnapshot.val();
+            if (lastNumberData) {
+                this.sheetsData.lastNumberResults = lastNumberData;
+            }
+            
+            this.showNotification('✅ Datos sincronizados desde Firebase', 'success');
+            
+            // Actualizar todas las pestañas
+            this.loadLastUserBet();
+            this.loadUserBetForCurrentGP();
+            
+            if (this.state.currentTab === 'points') this.loadPointsTab();
+            if (this.state.currentTab === 'season') this.loadSeasonTab();
+            if (this.state.currentTab === 'lastNumber') this.loadLastNumberTab();
+            if (this.state.currentTab === 'admin') this.loadAdminPanel();
+            
+        } catch (error) {
+            console.error('❌ Error recargando datos:', error);
+            this.showNotification('❌ Error sincronizando datos', 'error');
+        }
+        
+        if (refreshBtn) {
+            setTimeout(() => {
+                refreshBtn.innerHTML = '<i class="fas fa-redo"></i>';
+                refreshBtn.disabled = false;
+            }, 1000);
+        }
+    }
+
     // ==================== CORE APP METHODS ====================
     
     setupEventListeners() {
@@ -813,61 +889,6 @@ async refreshData() {
         }
     }
 
-    async saveCurrentBet() {
-        const currentGP = this.circuitsList[this.state.selectedGP];
-        const user = this.state.currentUser;
-        const selected = this.state.selectedPodium;
-        
-        if (!selected[0] || !selected[1] || !selected[2]) {
-            this.showNotification('❌ Debes seleccionar 3 pilotos', 'error');
-            return;
-        }
-        
-        if (selected[0] === selected[1] || selected[0] === selected[2] || selected[1] === selected[2]) {
-            this.showNotification('❌ Los pilotos deben ser diferentes', 'error');
-            return;
-        }
-        
-        const betData = {
-            Carrera: currentGP,
-            Jugador: user,
-            P1: selected[0],
-            P2: selected[1],
-            P3: selected[2],
-            Fecha: new Date().toLocaleString('es-ES')
-        };
-        
-        const rowData = [
-            betData.Carrera,
-            betData.Jugador,
-            betData.P1,
-            betData.P2,
-            betData.P3,
-            betData.Fecha
-        ];
-        
-        const success = await this.saveToGoogleSheet('Apuestas', rowData);
-        
-        if (success) {
-            const existingIndex = this.sheetsData.bets.findIndex(bet => 
-                bet.Carrera === currentGP && bet.Jugador === user
-            );
-            
-            if (existingIndex !== -1) {
-                this.sheetsData.bets[existingIndex] = betData;
-                this.showNotification('✅ Apuesta actualizada', 'success');
-            } else {
-                this.sheetsData.bets.push(betData);
-                this.showNotification('✅ Apuesta guardada', 'success');
-            }
-            
-            this.loadLastUserBet();
-            this.loadUserBetForCurrentGP();
-        } else {
-            this.showNotification('❌ Error guardando apuesta', 'error');
-        }
-    }
-
     // ==================== TAB METHODS ====================
     
     switchTab(tab) {
@@ -888,6 +909,7 @@ async refreshData() {
     loadTabContent(tab) {
         switch(tab) {
             case 'race':
+                // Ya está cargado
                 break;
             case 'season':
                 this.loadSeasonTab();
@@ -1006,66 +1028,6 @@ async refreshData() {
             if (saveBtn) {
                 saveBtn.innerHTML = '<i class="fas fa-sync-alt"></i> ACTUALIZAR APUESTA MUNDIAL';
             }
-        }
-    }
-
-    async saveSeasonBet() {
-        const user = this.state.currentUser;
-        
-        const seasonData = {
-            Jugador: user,
-            D_P1: document.getElementById('season-p1').value,
-            D_P2: document.getElementById('season-p2').value,
-            D_P3: document.getElementById('season-p3').value,
-            C_P1: document.getElementById('season-c1').value,
-            C_P2: document.getElementById('season-c2').value,
-            C_P3: document.getElementById('season-c3').value,
-            Fecha: new Date().toLocaleString('es-ES')
-        };
-        
-        const drivers = [seasonData.D_P1, seasonData.D_P2, seasonData.D_P3];
-        const constructors = [seasonData.C_P1, seasonData.C_P2, seasonData.C_P3];
-        
-        if (drivers.includes('') || constructors.includes('')) {
-            this.showNotification('❌ Debes completar todas las selecciones', 'error');
-            return;
-        }
-        
-        if (new Set(drivers).size !== 3) {
-            this.showNotification('❌ Los pilotos deben ser diferentes', 'error');
-            return;
-        }
-        
-        if (new Set(constructors).size !== 3) {
-            this.showNotification('❌ Los constructores deben ser diferentes', 'error');
-            return;
-        }
-        
-        const rowData = [
-            seasonData.Jugador,
-            seasonData.D_P1,
-            seasonData.D_P2,
-            seasonData.D_P3,
-            seasonData.C_P1,
-            seasonData.C_P2,
-            seasonData.C_P3,
-            seasonData.Fecha
-        ];
-        
-        const success = await this.saveToGoogleSheet('Mundial', rowData);
-        
-        if (success) {
-            const existingIndex = this.sheetsData.seasonBets.findIndex(bet => bet.Jugador === user);
-            
-            if (existingIndex !== -1) {
-                this.sheetsData.seasonBets[existingIndex] = seasonData;
-                this.showNotification('✅ Apuesta mundial actualizada', 'success');
-            } else {
-                this.sheetsData.seasonBets.push(seasonData);
-                this.showNotification('✅ Apuesta mundial guardada', 'success');
-            }
-        } else {
-            this.showNotification('❌ Error guardando apuesta mundial', 'error');
         }
     }
 
@@ -1325,7 +1287,7 @@ async refreshData() {
             const lastBets = this.sheetsData.bets.length;
             const lastResults = this.sheetsData.results.length;
             
-            await this.loadAllData();
+            await this.refreshData();
             
             if (this.sheetsData.bets.length !== lastBets || 
                 this.sheetsData.results.length !== lastResults) {
@@ -1344,7 +1306,7 @@ async refreshData() {
         indicator.className = 'update-indicator show';
         indicator.innerHTML = `
             <i class="fas fa-sync-alt"></i>
-            <span>Datos actualizados desde Google Sheets</span>
+            <span>Datos actualizados desde Firebase</span>
         `;
         
         document.body.appendChild(indicator);
@@ -1412,7 +1374,7 @@ async refreshData() {
                 
                 <div class="sync-status">
                     <i class="fas fa-sync-alt"></i>
-                    <span>Sincronizado con Google Sheets</span>
+                    <span>Sincronizado con Firebase</span>
                 </div>
                 
                 <div class="admin-section mt-20">
@@ -1504,124 +1466,28 @@ async refreshData() {
             </div>
         `;
         
-        document.getElementById('btn-publish-results').onclick = () => this.publishFullResults();
-        document.getElementById('btn-save-last-number').onclick = () => this.saveLastNumber();
-    }
-
-    async publishFullResults() {
-        const gpIndex = document.getElementById('admin-gp-select').value;
-        const circuit = this.circuitsList[gpIndex];
-        
-        const results = {};
-        const rowData = [circuit];
-        
-        for (let i = 1; i <= 22; i++) {
-            const select = document.querySelector(`[data-position="${i}"]`);
-            const driver = select ? select.value : '';
-            
-            if (!driver) {
-                this.showNotification(`❌ Falta seleccionar piloto para P${i}`, 'error');
-                return;
-            }
-            
-            results[i] = driver;
-            rowData.push(driver);
+        const publishBtn = document.getElementById('btn-publish-results');
+        if (publishBtn) {
+            publishBtn.onclick = () => this.publishFullResults();
         }
         
-        const drivers = Object.values(results);
-        if (new Set(drivers).size !== 22) {
-            this.showNotification('❌ Todos los pilotos deben ser diferentes', 'error');
-            return;
-        }
-        
-        const success = await this.saveToGoogleSheet('Resultados', rowData);
-        
-        if (success) {
-            this.state.gpResults[circuit] = results;
-            this.sheetsData.results.push({
-                Carrera: circuit,
-                ...results
-            });
-            
-            this.showNotification('✅ Resultados publicados correctamente', 'success');
-            
-            this.calculateAllPoints();
-            
-            if (this.state.currentTab === 'points') {
-                this.loadPointsTab();
-            }
-        } else {
-            this.showNotification('❌ Error publicando resultados', 'error');
+        const saveLastNumBtn = document.getElementById('btn-save-last-number');
+        if (saveLastNumBtn) {
+            saveLastNumBtn.onclick = () => this.saveLastNumber();
         }
     }
 
-    async saveLastNumber() {
-        const gpIndex = document.getElementById('last-number-gp').value;
-        const circuit = this.circuitsList[gpIndex];
-        const lastNumber = parseInt(document.getElementById('last-number-input').value);
-        
-        if (!lastNumber || lastNumber < 1 || lastNumber > 22) {
-            this.showNotification('❌ El último número debe estar entre 1 y 22', 'error');
-            return;
-        }
-        
-        const rowData = [
-            circuit,
-            this.state.currentUser,
-            lastNumber.toString()
-        ];
-        
-        const success = await this.saveToGoogleSheet('UltimoNumero', rowData);
-        
-        if (success) {
-            this.sheetsData.lastNumberResults[circuit] = lastNumber;
-            this.showNotification('✅ Último número guardado', 'success');
-        } else {
-            this.showNotification('❌ Error guardando último número', 'error');
-        }
-    }
-
-    // ==================== REFRESH & NOTIFICATION METHODS ====================
+    // ==================== NOTIFICATION METHODS ====================
     
-    async refreshData() {
-        const refreshBtn = document.getElementById('btn-refresh');
-        if (refreshBtn) {
-            refreshBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
-            refreshBtn.disabled = true;
-        }
-        
-        await this.loadAllData();
-        
-        this.loadLastUserBet();
-        this.loadUserBetForCurrentGP();
-        
-        if (this.state.currentTab === 'points') {
-            this.loadPointsTab();
-        }
-        
-        if (this.state.currentTab === 'lastNumber') {
-            this.loadLastNumberTab();
-        }
-        
-        if (this.state.currentTab === 'admin') {
-            this.loadAdminPanel();
-        }
-        
-        if (this.state.currentTab === 'season') {
-            this.loadSeasonTab();
-        }
-        
-        if (refreshBtn) {
-            refreshBtn.innerHTML = '<i class="fas fa-redo"></i>';
-            refreshBtn.disabled = false;
-        }
-        
-        this.showNotification('✅ Datos actualizados desde Google Sheets', 'success');
-    }
-
     showNotification(message, type = 'info') {
         const notification = document.createElement('div');
         notification.className = `notification ${type}`;
+        
+        let icon = 'ℹ️';
+        if (type === 'success') icon = '✅';
+        if (type === 'error') icon = '❌';
+        
+        notification.innerHTML = `${icon} ${message}`;
         notification.style.cssText = `
             position: fixed;
             top: 20px;
@@ -1635,14 +1501,9 @@ async refreshData() {
             animation: slideInRight 0.3s ease;
         `;
         
-        let icon = 'ℹ️';
-        if (type === 'success') icon = '✅';
-        if (type === 'error') icon = '❌';
-        
-        notification.innerHTML = `${icon} ${message}`;
-        
         document.body.appendChild(notification);
         
+        // Añadir animaciones CSS si no existen
         if (!document.querySelector('#notification-animations')) {
             const style = document.createElement('style');
             style.id = 'notification-animations';
@@ -1721,6 +1582,7 @@ window.closeAdminModal = function() {
 // ==================== INITIALIZATION ====================
 
 window.addEventListener('load', () => {
+    console.log('🌍 Página cargada, inicializando app...');
     window.f1App = new F1CupApp();
 });
 
