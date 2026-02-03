@@ -748,7 +748,7 @@ class F1CupApp {
             case 'admin':
                 this.loadAdminPanel();
                 break;
-            case 'lastNumber':
+            case 'history':
                 this.loadHistoryTab(); // Cambiado de loadLastNumberTab a loadHistoryTab
                 break;
         }
@@ -756,148 +756,292 @@ class F1CupApp {
 
     // ==================== PESTAÑA TEMPORADA ====================
     
-    loadSeasonTab() {
-        const tabContent = document.getElementById('tab-season');
-        if (!tabContent) return;
-        
-        tabContent.innerHTML = `
-            <div class="mobile-card">
-                <p class="sub-text">🏆 APUESTAS MUNDIALES 2026</p>
-                
-                <div class="season-section">
-                    <h4><i class="fas fa-user"></i> PILOTOS</h4>
-                    <div class="form-group">
-                        <label class="form-label">CAMPEÓN DEL MUNDIO</label>
-                        <select id="season-p1" class="form-select">
-                            <option value="">Selecciona piloto</option>
-                            ${this.driversList.map(driver => 
-                                `<option value="${driver}">${driver}</option>`
-                            ).join('')}
-                        </select>
+   loadSeasonTab() {
+    const tabContent = document.getElementById('tab-season');
+    if (!tabContent) return;
+    
+    tabContent.innerHTML = `
+        <div class="mobile-card">
+            <p class="sub-text">🏆 APUESTAS MUNDIALES 2026</p>
+            
+            <div class="season-section">
+                <h4><i class="fas fa-user"></i> PILOTOS</h4>
+                <div class="podium-item">
+                    <div class="driver-image-container">
+                        <img id="season-p1-img" src="" class="driver-img" style="display:none">
                     </div>
                     <div class="form-group">
-                        <label class="form-label">SUBCAMPEÓN</label>
-                        <select id="season-p2" class="form-select">
+                        <label class="form-label">CAMPEÓN DEL MUNDO</label>
+                        <select id="season-p1" class="form-select" onchange="window.f1App.updateSeasonImage('season-p1-img', this.value, 'driver')">
                             <option value="">Selecciona piloto</option>
-                            ${this.driversList.map(driver => 
-                                `<option value="${driver}">${driver}</option>`
-                            ).join('')}
-                        </select>
-                    </div>
-                    <div class="form-group">
-                        <label class="form-label">TERCER LUGAR</label>
-                        <select id="season-p3" class="form-select">
-                            <option value="">Selecciona piloto</option>
-                            ${this.driversList.map(driver => 
-                                `<option value="${driver}">${driver}</option>`
-                            ).join('')}
+                            ${this.driversList.map(driver => `<option value="${driver}">${driver}</option>`).join('')}
                         </select>
                     </div>
                 </div>
-                
-                <div class="season-section mt-20">
-                    <h4><i class="fas fa-car"></i> CONSTRUCTORES</h4>
+                <div class="podium-item mt-20">
+                    <div class="driver-image-container">
+                        <img id="season-p2-img" src="" class="driver-img" style="display:none">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">SUBCAMPEÓN</label>
+                        <select id="season-p2" class="form-select" onchange="window.f1App.updateSeasonImage('season-p2-img', this.value, 'driver')">
+                            <option value="">Selecciona piloto</option>
+                            ${this.driversList.map(driver => `<option value="${driver}">${driver}</option>`).join('')}
+                        </select>
+                    </div>
+                </div>
+                <div class="podium-item mt-20">
+                    <div class="driver-image-container">
+                        <img id="season-p3-img" src="" class="driver-img" style="display:none">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">TERCER LUGAR</label>
+                        <select id="season-p3" class="form-select" onchange="window.f1App.updateSeasonImage('season-p3-img', this.value, 'driver')">
+                            <option value="">Selecciona piloto</option>
+                            ${this.driversList.map(driver => `<option value="${driver}">${driver}</option>`).join('')}
+                        </select>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="season-section mt-20">
+                <h4><i class="fas fa-car"></i> CONSTRUCTORES</h4>
+                <div class="podium-item">
+                    <div class="driver-image-container team-container">
+                        <img id="season-c1-img" src="" class="driver-img" style="display:none; object-fit: contain; padding: 10px;">
+                    </div>
                     <div class="form-group">
                         <label class="form-label">CAMPEÓN DE CONSTRUCTORES</label>
-                        <select id="season-c1" class="form-select">
+                        <select id="season-c1" class="form-select" onchange="window.f1App.updateSeasonImage('season-c1-img', this.value, 'team')">
                             <option value="">Selecciona equipo</option>
-                            ${this.data.constructors.map(team => 
-                                `<option value="${team}">${team}</option>`
-                            ).join('')}
-                        </select>
-                    </div>
-                    <div class="form-group">
-                        <label class="form-label">SUBCAMPEÓN</label>
-                        <select id="season-c2" class="form-select">
-                            <option value="">Selecciona equipo</option>
-                            ${this.data.constructors.map(team => 
-                                `<option value="${team}">${team}</option>`
-                            ).join('')}
-                        </select>
-                    </div>
-                    <div class="form-group">
-                        <label class="form-label">TERCER LUGAR</label>
-                        <select id="season-c3" class="form-select">
-                            <option value="">Selecciona equipo</option>
-                            ${this.data.constructors.map(team => 
-                                `<option value="${team}">${team}</option>`
-                            ).join('')}
+                            ${this.data.constructors.map(team => `<option value="${team}">${team}</option>`).join('')}
                         </select>
                     </div>
                 </div>
-                
-                <button id="btn-save-season" class="btn btn-primary w-100 mt-20">
-                    <i class="fas fa-trophy"></i> GUARDAR APUESTA MUNDIAL
-                </button>
+                <div class="podium-item mt-20">
+                    <div class="driver-image-container team-container">
+                        <img id="season-c2-img" src="" class="driver-img" style="display:none; object-fit: contain; padding: 10px;">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">SUBCAMPEÓN</label>
+                        <select id="season-c2" class="form-select" onchange="window.f1App.updateSeasonImage('season-c2-img', this.value, 'team')">
+                            <option value="">Selecciona equipo</option>
+                            ${this.data.constructors.map(team => `<option value="${team}">${team}</option>`).join('')}
+                        </select>
+                    </div>
+                </div>
+                <div class="podium-item mt-20">
+                    <div class="driver-image-container team-container">
+                        <img id="season-c3-img" src="" class="driver-img" style="display:none; object-fit: contain; padding: 10px;">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">TERCER LUGAR</label>
+                        <select id="season-c3" class="form-select" onchange="window.f1App.updateSeasonImage('season-c3-img', this.value, 'team')">
+                            <option value="">Selecciona equipo</option>
+                            ${this.data.constructors.map(team => `<option value="${team}">${team}</option>`).join('')}
+                        </select>
+                    </div>
+                </div>
             </div>
-        `;
+            
+            <button id="btn-save-season" class="btn btn-primary w-100 mt-20">
+                <i class="fas fa-trophy"></i> GUARDAR APUESTA MUNDIAL
+            </button>
+        </div>
+    `;
+    
+    document.getElementById('btn-save-season').onclick = () => this.saveSeasonBet();
+    this.loadExistingSeasonBet();
+}
+    loadExistingSeasonBet() {
+    const user = this.state.currentUser;
+    const existingBet = this.firebaseData.seasonBets.find(bet => bet.Jugador === user);
+    
+    if (existingBet) {
+        const fields = [
+            { id: 'season-p1', val: existingBet.D_P1, img: 'season-p1-img', type: 'driver' },
+            { id: 'season-p2', val: existingBet.D_P2, img: 'season-p2-img', type: 'driver' },
+            { id: 'season-p3', val: existingBet.D_P3, img: 'season-p3-img', type: 'driver' },
+            { id: 'season-c1', val: existingBet.C_P1, img: 'season-c1-img', type: 'team' },
+            { id: 'season-c2', val: existingBet.C_P2, img: 'season-c2-img', type: 'team' },
+            { id: 'season-c3', val: existingBet.C_P3, img: 'season-c3-img', type: 'team' }
+        ];
+
+        fields.forEach(field => {
+            const el = document.getElementById(field.id);
+            if (el) {
+                el.value = field.val || '';
+                this.updateSeasonImage(field.img, field.val, field.type);
+            }
+        });
         
         const saveBtn = document.getElementById('btn-save-season');
-        if (saveBtn) {
-            saveBtn.onclick = () => this.saveSeasonBet();
-        }
-        
-        this.loadExistingSeasonBet();
+        if (saveBtn) saveBtn.innerHTML = '<i class="fas fa-sync-alt"></i> ACTUALIZAR APUESTA MUNDIAL';
+    }
+}
+updateSeasonImage(imgId, value, type) {
+    const img = document.getElementById(imgId);
+    if (!img) return;
+
+    if (!value) {
+        img.style.display = 'none';
+        return;
     }
 
-    loadExistingSeasonBet() {
-        const user = this.state.currentUser;
-        const existingBet = this.firebaseData.seasonBets.find(bet => bet.Jugador === user);
-        
-        if (existingBet) {
-            document.getElementById('season-p1').value = existingBet.D_P1 || '';
-            document.getElementById('season-p2').value = existingBet.D_P2 || '';
-            document.getElementById('season-p3').value = existingBet.D_P3 || '';
-            document.getElementById('season-c1').value = existingBet.C_P1 || '';
-            document.getElementById('season-c2').value = existingBet.C_P2 || '';
-            document.getElementById('season-c3').value = existingBet.C_P3 || '';
-            
-            const saveBtn = document.getElementById('btn-save-season');
-            if (saveBtn) {
-                saveBtn.innerHTML = '<i class="fas fa-sync-alt"></i> ACTUALIZAR APUESTA MUNDIAL';
-            }
+    if (type === 'driver') {
+        const driverData = this.data.drivers[value];
+        if (driverData && driverData.foto) {
+            img.src = driverData.foto;
+            img.style.display = 'block';
         }
+    } else if (type === 'team') {
+        // Asumiendo que tienes los logos en assets/equipos/nombre-equipo.png
+        // Si no tienes las rutas, puedes usar un placeholder o añadirlas a this.data
+        const teamPath = `./assets/equipos/${value.toLowerCase().replace(/\s+/g, '-')}.png`;
+        img.src = teamPath;
+        img.style.display = 'block';
+        
+        // Manejo de error si no existe la imagen del equipo
+        img.onerror = () => { img.style.display = 'none'; };
     }
+}
 
     // ==================== PESTAÑA HISTORIAL (reemplaza última número) ====================
     
-    loadHistoryTab() {
-        const tabContent = document.getElementById('tab-lastNumber');
-        if (!tabContent) return;
-        
-        // Ordenar apuestas por fecha (más reciente primero)
-        const allBets = [...this.firebaseData.bets].sort((a, b) => {
-            return new Date(b.timestamp || b.Fecha) - new Date(a.timestamp || a.Fecha);
+   loadHistoryTab() {
+    const tabContent = document.getElementById('tab-history');
+    if (!tabContent) return;
+
+    // Calculamos los puntos detallados antes de generar la tabla
+    const desglose = {
+        Varo: { exactos: 0, podio: 0, diferencia: 0, total: 0 },
+        Cía: { exactos: 0, podio: 0, diferencia: 0, total: 0 }
+    };
+
+    // Procesamos cada carrera que tenga resultado oficial
+    this.firebaseData.results.forEach(result => {
+        const carrera = result.Carrera;
+        const realPodium = [result.P1, result.P2, result.P3];
+        const betsForRace = this.firebaseData.bets.filter(bet => bet.Carrera === carrera);
+
+        let diffVaro = null;
+        let diffCia = null;
+
+        betsForRace.forEach(bet => {
+            const player = bet.Jugador;
+            if (!desglose[player]) return;
+
+            const betPodium = [bet.P1, bet.P2, bet.P3];
+            
+            // 1. Puntos por aciertos exactos
+            let exactMatches = 0;
+            for (let i = 0; i < 3; i++) {
+                if (betPodium[i] === realPodium[i]) exactMatches++;
+            }
+            let pExactos = 0;
+            if (exactMatches === 1) pExactos = 5;
+            else if (exactMatches === 2) pExactos = 4;
+            else if (exactMatches === 3) pExactos = 3;
+            
+            desglose[player].exactos += pExactos;
+
+            // 2. Puntos por pilotos en podio (2pts c/u)
+            let podioMatches = 0;
+            betPodium.forEach(p => { if (realPodium.includes(p)) podioMatches++; });
+            const pPodio = podioMatches * 2;
+            desglose[player].podio += pPodio;
+
+            // 3. Preparar cálculo de diferencia
+            let currentDiff = 0;
+            betPodium.forEach((piloto, index) => {
+                const realIndex = realPodium.indexOf(piloto);
+                currentDiff += (realIndex !== -1) ? Math.abs(index - realIndex) : 3;
+            });
+            if (player === 'Varo') diffVaro = currentDiff;
+            else if (player === 'Cía') diffCia = currentDiff;
         });
-        
-        tabContent.innerHTML = `
-            <div class="mobile-card">
-                <p class="sub-text">📋 HISTORIAL DE APUESTAS</p>
-                <div class="history-list mt-20">
-                    ${allBets.length > 0 ? allBets.map(bet => {
-                        const fecha = bet.Fecha ? bet.Fecha.split(' ')[0] : 'Fecha no disponible';
-                        const hora = bet.Fecha ? bet.Fecha.split(' ')[1] : '';
-                        
-                        return `
-                            <div class="history-item ${bet.Jugador === this.state.currentUser ? 'my-bet' : ''}">
-                                <div class="history-header">
-                                    <span class="circuit-name">${bet.Carrera.split(' (')[0]}</span>
-                                    <span class="bet-date">${fecha} ${hora}</span>
-                                </div>
-                                <div class="history-player">
-                                    <span class="player-badge ${bet.Jugador.toLowerCase()}">${bet.Jugador}</span>
-                                    <span class="bet-podium">${bet.P1} - ${bet.P2} - ${bet.P3}</span>
-                                </div>
-                            </div>
-                        `;
-                    }).join('') : '<p class="text-center">No hay apuestas registradas aún</p>'}
-                </div>
-                <button onclick="window.f1App.refreshData()" class="btn btn-secondary w-100 mt-20">
-                    <i class="fas fa-redo"></i> ACTUALIZAR HISTORIAL
-                </button>
+
+        // 4. Punto extra por mejor diferencia
+        if (diffVaro !== null && diffCia !== null) {
+            if (diffVaro < diffCia) desglose.Varo.diferencia += 1;
+            else if (diffCia < diffVaro) desglose.Cía.diferencia += 1;
+        }
+    });
+
+    // Sumar totales
+    Object.keys(desglose).forEach(p => {
+        desglose[p].total = desglose[p].exactos + desglose[p].podio + desglose[p].diferencia;
+    });
+
+    // Generar el HTML de la tabla
+    tabContent.innerHTML = `
+        <div class="mobile-card">
+            <p class="sub-text">📊 DESGLOSE DE PUNTOS TOTALES</p>
+            <div class="table-container" style="overflow-x: auto;">
+                <table class="bets-table" style="width: 100%; text-align: center;">
+                    <thead>
+                        <tr>
+                            <th>Concepto</th>
+                            <th class="varo">VARO</th>
+                            <th class="cia">CÍA</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td>Aciertos Exactos</td>
+                            <td>${desglose.Varo.exactos}</td>
+                            <td>${desglose.Cía.exactos}</td>
+                        </tr>
+                        <tr>
+                            <td>Pilotos en Podio</td>
+                            <td>${desglose.Varo.podio}</td>
+                            <td>${desglose.Cía.podio}</td>
+                        </tr>
+                        <tr>
+                            <td>Mejor Diferencia</td>
+                            <td>${desglose.Varo.diferencia}</td>
+                            <td>${desglose.Cía.diferencia}</td>
+                        </tr>
+                        <tr style="font-weight: 900; background: rgba(225,6,0,0.1); color: var(--f1-red);">
+                            <td>TOTAL</td>
+                            <td>${desglose.Varo.total}</td>
+                            <td>${desglose.Cía.total}</td>
+                        </tr>
+                    </tbody>
+                </table>
             </div>
-        `;
+            <button onclick="window.f1App.refreshData()" class="btn btn-secondary w-100 mt-20">
+                <i class="fas fa-redo"></i> ACTUALIZAR SUMAS
+            </button>
+        </div>
+    `;
+}
+updateSeasonImage(imgId, value, type) {
+    const img = document.getElementById(imgId);
+    if (!img) return;
+
+    if (!value) {
+        img.style.display = 'none';
+        return;
     }
+
+    if (type === 'driver') {
+        const driverData = this.data.drivers[value];
+        if (driverData && driverData.foto) {
+            img.src = driverData.foto;
+            img.style.display = 'block';
+        }
+    } else if (type === 'team') {
+        // Asumiendo que tienes los logos en assets/equipos/nombre-equipo.png
+        // Si no tienes las rutas, puedes usar un placeholder o añadirlas a this.data
+        const teamPath = `./assets/equipos/${value.toLowerCase().replace(/\s+/g, '-')}.png`;
+        img.src = teamPath;
+        img.style.display = 'block';
+        
+        // Manejo de error si no existe la imagen del equipo
+        img.onerror = () => { img.style.display = 'none'; };
+    }
+}
 
     // ==================== PESTAÑA PUNTOS ====================
     
