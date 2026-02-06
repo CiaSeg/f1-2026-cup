@@ -16,9 +16,13 @@ class F1CupApp {
             currentTab: 'race',
             selectedGP: this.getInitialGP(), 
             isAdmin: localStorage.getItem('f1_admin') === 'true',
-            dataLoaded: false, // <-- CORREGIDO: Añadida la coma
+            dataLoaded: false,
             historyIndex: 0
         };
+
+        // FALTA ESTA LÍNEA:
+        this.state.selectedPodium = ['', '', ''];
+        
 
         this.data = {
             circuits: {
@@ -102,6 +106,289 @@ class F1CupApp {
             this.updateUI();
             this.checkAdminStatus();
         }, 500);
+    }
+
+    // ==================== MÉTODOS FALTANTES ====================
+    
+    async loadFirebaseData() {
+        console.log('📥 Cargando datos de Firebase...');
+        try {
+            // Cargar apuestas
+            const betsSnapshot = await this.db.ref('bets').once('value');
+            this.firebaseData.bets = betsSnapshot.val() ? Object.values(betsSnapshot.val()) : [];
+            
+            // Cargar resultados
+            const resultsSnapshot = await this.db.ref('results').once('value');
+            this.firebaseData.results = resultsSnapshot.val() ? Object.values(resultsSnapshot.val()) : [];
+            
+            // Cargar apuestas de temporada
+            const seasonBetsSnapshot = await this.db.ref('seasonBets').once('value');
+            this.firebaseData.seasonBets = seasonBetsSnapshot.val() ? Object.values(seasonBetsSnapshot.val()) : [];
+            
+            // Cargar resultados finales
+            const finalResultsSnapshot = await this.db.ref('finalResults').once('value');
+            this.firebaseData.finalResults = finalResultsSnapshot.val() || null;
+            
+            console.log('✅ Datos cargados correctamente');
+            this.state.dataLoaded = true;
+            
+        } catch (error) {
+            console.error('❌ Error cargando datos:', error);
+            this.showNotification('Error cargando datos', 'error');
+        }
+    }
+    
+    setupEventListeners() {
+        console.log('🔗 Configurando listeners...');
+        
+        // Botón de usuario Varo
+        document.getElementById('btn-varo')?.addEventListener('click', () => {
+            this.state.currentUser = 'Varo';
+            localStorage.setItem('f1_user', 'Varo');
+            this.state.currentPage = 'main';
+            this.updateUI();
+        });
+        
+        // Botón de usuario Cía
+        document.getElementById('btn-cia')?.addEventListener('click', () => {
+            this.state.currentUser = 'Cía';
+            localStorage.setItem('f1_user', 'Cía');
+            this.state.currentPage = 'main';
+            this.updateUI();
+        });
+        
+        // Botón volver
+        document.getElementById('btn-back')?.addEventListener('click', () => {
+            this.state.currentPage = 'landing';
+            this.updateUI();
+        });
+        
+        // Selector de GP
+        document.getElementById('gp-select')?.addEventListener('change', (e) => {
+            this.state.selectedGP = parseInt(e.target.value);
+            this.updateCircuitInfo();
+            this.loadUserBetForCurrentGP();
+        });
+        
+        // Selectores de pilotos
+        document.querySelectorAll('.form-select').forEach(select => {
+            select.addEventListener('change', (e) => {
+                const id = e.target.id;
+                const value = e.target.value;
+                
+                if (id.includes('p1-select')) {
+                    this.updatePodiumSelection(0, value);
+                    this.updateDriverImage('p1-img', value);
+                } else if (id.includes('p2-select')) {
+                    this.updatePodiumSelection(1, value);
+                    this.updateDriverImage('p2-img', value);
+                } else if (id.includes('p3-select')) {
+                    this.updatePodiumSelection(2, value);
+                    this.updateDriverImage('p3-img', value);
+                }
+            });
+        });
+        
+        // Botón guardar apuesta
+        document.getElementById('btn-save-bet')?.addEventListener('click', () => {
+            this.saveCurrentBet();
+        });
+        
+        // Botón refrescar
+        document.getElementById('btn-refresh')?.addEventListener('click', () => {
+            this.refreshData();
+        });
+        
+        // Tabs
+        document.querySelectorAll('.tab-btn').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                const tab = e.currentTarget.dataset.tab;
+                this.switchTab(tab);
+            });
+        });
+    }
+    
+    loadGPSelector() {
+        const select = document.getElementById('gp-select');
+        if (!select) return;
+        
+        select.innerHTML = '';
+        this.circuitsList.forEach((circuit, index) => {
+            const option = document.createElement('option');
+            option.value = index;
+            option.textContent = circuit;
+            select.appendChild(option);
+        });
+        
+        select.value = this.state.selectedGP;
+    }
+    
+    async saveSeasonBet() {
+        const user = this.state.currentUser;
+        
+        // Obtener valores
+        const drivers = [
+            document.getElementById('season-p1')?.value || '',
+            document.getElementById('season-p2')?.value || '',
+            document.getElementById('season-p3')?.value || ''
+        ];
+        
+        const constructors = [
+            document.getElementById('season-c1')?.value || '',
+            document.getElementById('season-c2')?.value || '',
+            document.getElementById('season-c3')?.value || ''
+        ];
+        
+        // Validar que todos los campos estén completos
+        if (drivers.some(d => !d) || constructors.some(c => !c)) {
+            this.showNotification('❌ Completa todos los campos', 'error');
+            return;
+        }
+        
+        const seasonBetId = `season_${user}`;
+        const seasonBetData = {
+            id: seasonBetId,
+            Jugador: user,
+            D_P1: drivers[0],
+            D_P2: drivers[1],
+            D_P3: drivers[2],
+            C_P1: constructors[0],
+            C_P2: constructors[1],
+            C_P3: constructors[2],
+            UltimaModificacion: new Date().toLocaleString('es-ES'),
+            timestamp: Date.now()
+        };
+        
+        try {
+            await this.db.ref(`seasonBets/${seasonBetId}`).set(seasonBetData);
+            
+            // Actualizar datos locales
+            const idx = this.firebaseData.seasonBets.findIndex(b => b.Jugador === user);
+            if (idx !== -1) {
+                this.firebaseData.seasonBets[idx] = seasonBetData;
+            } else {
+                this.firebaseData.seasonBets.push(seasonBetData);
+            }
+            
+            this.showNotification('✅ Apuesta mundial guardada', 'success');
+            
+        } catch (error) {
+            this.showNotification('❌ Error: ' + error.message, 'error');
+        }
+    }
+    
+    loadExistingResults() {
+        const select = document.getElementById('admin-gp-select');
+        if (!select) return;
+        
+        // Cargar resultados existentes
+        const currentGP = this.circuitsList[select.value];
+        const existingResult = this.firebaseData.results.find(r => r.Carrera === currentGP);
+        
+        if (existingResult) {
+            // Llenar los selects con los resultados existentes
+            for (let i = 1; i <= 22; i++) {
+                const select = document.querySelector(`.result-select[data-position="${i}"]`);
+                if (select && existingResult[`P${i}`]) {
+                    select.value = existingResult[`P${i}`];
+                }
+            }
+        }
+    }
+    
+    async publishFullResults() {
+        const gpIndex = document.getElementById('admin-gp-select').value;
+        const currentGP = this.circuitsList[gpIndex];
+        
+        // Verificar que no sea TEST
+        if (currentGP.includes('TEST')) {
+            this.showNotification('🚫 No se pueden publicar resultados en TEST', 'error');
+            return;
+        }
+        
+        // Recolectar resultados
+        const results = {};
+        for (let i = 1; i <= 22; i++) {
+            const select = document.querySelector(`.result-select[data-position="${i}"]`);
+            if (!select || !select.value) {
+                this.showNotification(`❌ Completa la posición ${i}`, 'error');
+                return;
+            }
+            results[`P${i}`] = select.value;
+        }
+        
+        const resultData = {
+            Carrera: currentGP,
+            ...results,
+            P1: results.P1,
+            P2: results.P2,
+            P3: results.P3,
+            FechaPublicacion: new Date().toLocaleString('es-ES'),
+            timestamp: Date.now()
+        };
+        
+        try {
+            const gpId = currentGP.replace(/[^a-zA-Z0-9]/g, '');
+            await this.db.ref(`results/${gpId}`).set(resultData);
+            
+            // Actualizar datos locales
+            const idx = this.firebaseData.results.findIndex(r => r.Carrera === currentGP);
+            if (idx !== -1) {
+                this.firebaseData.results[idx] = resultData;
+            } else {
+                this.firebaseData.results.push(resultData);
+            }
+            
+            this.showNotification('✅ Resultados publicados', 'success');
+            this.calculateAllPoints();
+            
+            // Recargar las pestañas afectadas
+            if (this.state.currentTab === 'points') this.loadPointsTab();
+            if (this.state.currentTab === 'history') this.loadHistoryTab();
+            
+        } catch (error) {
+            this.showNotification('❌ Error: ' + error.message, 'error');
+        }
+    }
+    
+    async saveFinalResults() {
+        const drivers = [
+            document.getElementById('final-d1')?.value || '',
+            document.getElementById('final-d2')?.value || '',
+            document.getElementById('final-d3')?.value || ''
+        ];
+        
+        const constructors = [
+            document.getElementById('final-c1')?.value || '',
+            document.getElementById('final-c2')?.value || '',
+            document.getElementById('final-c3')?.value || ''
+        ];
+        
+        // Validar
+        if (drivers.some(d => !d) || constructors.some(c => !c)) {
+            this.showNotification('❌ Completa todos los campos', 'error');
+            return;
+        }
+        
+        const finalResults = {
+            D1: drivers[0],
+            D2: drivers[1],
+            D3: drivers[2],
+            C1: constructors[0],
+            C2: constructors[1],
+            C3: constructors[2],
+            FechaCierre: new Date().toLocaleString('es-ES'),
+            timestamp: Date.now()
+        };
+        
+        try {
+            await this.db.ref('finalResults').set(finalResults);
+            this.firebaseData.finalResults = finalResults;
+            this.showNotification('🏁 Resultados finales guardados', 'success');
+            this.calculateAllPoints();
+        } catch (error) {
+            this.showNotification('❌ Error: ' + error.message, 'error');
+        }
     }
 
     // --- FIREBASE: GUARDADO SEGURO SIN DUPLICADOS ---
@@ -627,7 +914,7 @@ navigateHistory(direction) {
                 img.style.display = 'block';
             }
         } else if (type === 'team') {
-            const teamPath = `./assets/equipos/${value.toLowerCase().replace(/\\s+/g, '-')}.png`;
+            const teamPath = `./assets/equipos/${value.toLowerCase().replace(/\s+/g, '-')}.png`;
             img.src = teamPath;
             img.style.display = 'block';
             img.onerror = () => { img.style.display = 'none'; };
