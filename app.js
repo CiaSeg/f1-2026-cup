@@ -999,7 +999,7 @@ loadHistoryTab() {
             const player = bet.Jugador;
             const betPodium = [bet.P1, bet.P2, bet.P3];
             
-            // Cálculo de Aciertos Exactos
+            // 1. Cálculo de Aciertos Exactos
             let exactMatches = 0;
             for (let i = 0; i < 3; i++) {
                 if (betPodium[i] === realPodium[i]) {
@@ -1007,15 +1007,16 @@ loadHistoryTab() {
                 }
             }
             
-            // Cálculo de Pilotos en Podio (cualquier posición)
-            let podioMatches = 0;
-            betPodium.forEach(piloto => {
-                if (realPodium.includes(piloto)) {
-                    podioMatches++;
+            // 2. Cálculo de Pilotos en Podio PERO en lugar incorrecto (Exclusivo)
+            let podioIncorrecto = 0;
+            betPodium.forEach((piloto, index) => {
+                // Está en el podio real PERO no en la posición que apostaste
+                if (realPodium.includes(piloto) && piloto !== realPodium[index]) {
+                    podioIncorrecto++;
                 }
             });
             
-            // Cálculo de Diferencia (Cercanía)
+            // 3. Cálculo de Diferencia (Cercanía)
             let positionDifference = 0;
             betPodium.forEach((piloto, index) => {
                 const realIndex = realPodium.indexOf(piloto);
@@ -1026,7 +1027,7 @@ loadHistoryTab() {
                 }
             });
 
-            // Calcular puntos según las reglas
+            // 4. Calcular puntos según las nuevas reglas
             let puntosExactos = 0;
             switch(exactMatches) {
                 case 1: puntosExactos = 5; break;
@@ -1034,29 +1035,29 @@ loadHistoryTab() {
                 case 3: puntosExactos = 3; break;
             }
             
-            const puntosPodio = podioMatches * 2;
+            const puntosPodio = podioIncorrecto * 2;
             const puntosCarrera = puntosExactos + puntosPodio;
 
             if (player === 'Varo') {
                 exactosVaro = exactMatches;
-                podioVaro = podioMatches;
+                podioVaro = podioIncorrecto; // Solo los de lugar incorrecto
                 diffVaro = positionDifference;
                 puntosVaro = puntosCarrera;
                 
                 desglose.Varo.exactos += puntosExactos;
                 desglose.Varo.podio += puntosPodio;
                 
-                resumenVaro = `🎯 ${exactMatches} exacto(s) (${puntosExactos}pts) | 🥉 ${podioMatches} en podio (${puntosPodio}pts) | 📏 Dif: ${positionDifference}`;
+                resumenVaro = `🎯 ${exactMatches} exacto(s) (${puntosExactos}pts) | 🥉 ${podioIncorrecto} podio lugar inc. (${puntosPodio}pts) | 📏 Dif: ${positionDifference}`;
             } else {
                 exactosCia = exactMatches;
-                podioCia = podioMatches;
+                podioCia = podioIncorrecto; // Solo los de lugar incorrecto
                 diffCia = positionDifference;
                 puntosCia = puntosCarrera;
                 
                 desglose.Cía.exactos += puntosExactos;
                 desglose.Cía.podio += puntosPodio;
                 
-                resumenCia = `🎯 ${exactMatches} exacto(s) (${puntosExactos}pts) | 🥉 ${podioMatches} en podio (${puntosPodio}pts) | 📏 Dif: ${positionDifference}`;
+                resumenCia = `🎯 ${exactMatches} exacto(s) (${puntosExactos}pts) | 🥉 ${podioIncorrecto} podio lugar inc. (${puntosPodio}pts) | 📏 Dif: ${positionDifference}`;
             }
         });
 
@@ -1311,7 +1312,7 @@ loadHistoryTab() {
             const betPodium = [bet.P1, bet.P2, bet.P3];
             let points = 0;
             let exactMatches = 0;
-            let podioMatches = 0;
+            let podioIncorrectoMatches = 0; // Solo si acierta piloto pero en lugar equivocado
             
             // Contar aciertos exactos
             for (let i = 0; i < 3; i++) {
@@ -1320,28 +1321,29 @@ loadHistoryTab() {
                 }
             }
             
-            // Contar pilotos en podio (en cualquier posición)
-            betPodium.forEach(piloto => {
-                if (realPodium.includes(piloto)) {
-                    podioMatches++;
+            // Contar pilotos en podio pero en posición INCORRECTA
+            betPodium.forEach((piloto, index) => {
+                // Si el piloto está en el podio real PERO no está en la misma posición que apostaste
+                if (realPodium.includes(piloto) && piloto !== realPodium[index]) {
+                    podioIncorrectoMatches++;
                 }
             });
             
-            // Asignar puntos según aciertos exactos (Regla: 1=5pts, 2=4pts, 3=3pts)
+            // Asignar puntos por aciertos exactos (Regla: 1=5pts, 2=4pts, 3=3pts)
             switch(exactMatches) {
                 case 1: points += 5; break;
                 case 2: points += 4; break;
                 case 3: points += 3; break;
             }
             
-            // Puntos por cada piloto en podio (2pts por piloto)
-            points += (podioMatches * 2);
+            // Asignar puntos por cada piloto en podio en LUGAR INCORRECTO (2pts c/u)
+            points += (podioIncorrectoMatches * 2);
             
             // Sumar al total del jugador
             this.firebaseData.points[bet.Jugador] += points;
         });
         
-        // Punto extra por menor diferencia de posiciones
+        // --- PUNTO EXTRA POR CERCANÍA (Menor diferencia) ---
         if (betsForRace.length > 1) {
             let minDifference = Infinity;
             let winner = null;
@@ -1373,53 +1375,54 @@ loadHistoryTab() {
         }
     });
 
-    // 3. CÁLCULO DE PUNTOS POR MUNDIAL (SISTEMA NUEVO)
+    // 3. CÁLCULO DE PUNTOS POR MUNDIAL (SISTEMA EXCLUSIVO)
     const final = this.firebaseData.finalResults;
     if (final) {
         this.firebaseData.seasonBets.forEach(bet => {
             const player = bet.Jugador;
             
             // --- MUNDIAL PILOTOS ---
-            // Reglas: 1º=15pts, 2º=12pts, 3º=9pts | Podio incorrecto=6pts
             const realDrivers = [final.D1, final.D2, final.D3];
             const betDrivers = [bet.D_P1, bet.D_P2, bet.D_P3];
 
             betDrivers.forEach((driver, index) => {
                 if (!driver) return;
+                
                 if (driver === realDrivers[index]) {
-                    // Posición exacta
+                    // Si acierta posición exacta
                     if (index === 0) this.firebaseData.points[player] += 15;
                     else if (index === 1) this.firebaseData.points[player] += 12;
                     else if (index === 2) this.firebaseData.points[player] += 9;
-                } else if (realDrivers.includes(driver)) {
-                    // Está en el podio pero posición cambiada
+                } 
+                else if (realDrivers.includes(driver)) {
+                    // Si está en el podio pero en lugar equivocado
                     this.firebaseData.points[player] += 6;
                 }
             });
 
             // --- MUNDIAL CONSTRUCTORES ---
-            // Reglas: 1º=10pts, 2º=8pts, 3º=6pts | Podio incorrecto=4pts
             const realTeams = [final.C1, final.C2, final.C3];
             const betTeams = [bet.C_P1, bet.C_P2, bet.C_P3];
 
             betTeams.forEach((team, index) => {
                 if (!team) return;
+
                 if (team === realTeams[index]) {
-                    // Posición exacta
+                    // Si acierta posición exacta
                     if (index === 0) this.firebaseData.points[player] += 10;
                     else if (index === 1) this.firebaseData.points[player] += 8;
                     else if (index === 2) this.firebaseData.points[player] += 6;
-                } else if (realTeams.includes(team)) {
-                    // Está en el podio pero posición cambiada
+                } 
+                else if (realTeams.includes(team)) {
+                    // Si está en el podio pero en lugar equivocado
                     this.firebaseData.points[player] += 4;
                 }
             });
         });
     }
     
-    console.log("📊 Puntos recalculados:", this.firebaseData.points);
+    console.log("📊 Puntos recalculados correctamente:", this.firebaseData.points);
 }
-
     // ==================== ADMIN ====================
     
     updateAdminButton() {
