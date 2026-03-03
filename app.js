@@ -17,7 +17,7 @@ class F1CupApp {
             currentUser: localStorage.getItem('f1_user') || 'Varo',
             currentPage: 'landing',
             currentTab: 'race',
-            selectedGP: 0,
+            selectedGP: 2,
             selectedPodium: ['', '', ''],
             isAdmin: localStorage.getItem('f1_admin') === 'true',
             dataLoaded: false
@@ -230,29 +230,42 @@ class F1CupApp {
     }
     
 
-    async init() {
-        console.log('🚀 Iniciando app...');
-        
-        // Configurar event listeners primero
-        this.setupEventListeners();
-        
-        // Cargar datos de Firebase
-        await this.loadFirebaseData();
-        
-        // Mostrar la app
-        setTimeout(() => {
-            const loading = document.getElementById('loading');
-            const app = document.getElementById('app');
-            
-            if (loading) loading.style.display = 'none';
-            if (app) app.style.display = 'block';
-            
-            this.updateUI();
-            this.scrollToTop();
-            this.checkAdminStatus();
-            
-        }, 500);
+    // En el constructor, después de cargar los datos:
+async init() {
+    console.log('🚀 Iniciando app...');
+    
+    // Configurar event listeners primero
+    this.setupEventListeners();
+    
+    // Cargar datos de Firebase
+    await this.loadFirebaseData();
+    
+    // --- AÑADE ESTO: Buscar primer GP no votado ---
+    const firstUnvoted = this.findNextUnvotedGP(this.state.currentUser);
+    if (firstUnvoted !== -1) {
+        this.state.selectedGP = firstUnvoted;
+        console.log(`🎯 Primer GP no votado: ${this.circuitsList[firstUnvoted]}`);
+    } else {
+        // Si ya votó todos, mostrar el primer GP real
+        const firstRealGP = this.circuitsList.findIndex(c => !c.includes('TEST'));
+        if (firstRealGP !== -1) this.state.selectedGP = firstRealGP;
     }
+    // ---------------------------------------------
+    
+    // Mostrar la app
+    setTimeout(() => {
+        const loading = document.getElementById('loading');
+        const app = document.getElementById('app');
+        
+        if (loading) loading.style.display = 'none';
+        if (app) app.style.display = 'block';
+        
+        this.updateUI();
+        this.scrollToTop();
+        this.checkAdminStatus();
+        
+    }, 500);
+}
 
     // ==================== FIREBASE - MÉTODOS PRINCIPALES ====================
     
@@ -1029,12 +1042,12 @@ calculateRacePerformance(bet, result) {
         }
     }
 
-    // 3. Diferencia Real (1-22) - VERSIÓN CORREGIDA
+    // 3. Diferencia Real con TODOS los puestos (1-22)
     betPodium.forEach((piloto, index) => {
         const posicionApostada = index + 1; // 1, 2 o 3
         let posicionReal = 22; // Por defecto 22 si no se encuentra
         
-        // Buscar en qué posición REAL quedó el piloto (P1 a P22)
+        // Buscar en QUÉ PUESTO REAL terminó el piloto (P1 a P22)
         for (let p = 1; p <= 22; p++) {
             if (result[`P${p}`] === piloto) {
                 posicionReal = p;
@@ -1042,13 +1055,12 @@ calculateRacePerformance(bet, result) {
             }
         }
         
-        // CALCULAR DIFERENCIA ABSOLUTA
-        // Si apostó P3 (posición 3) y quedó P12 (posición 12) -> |3 - 12| = 9
+        // Diferencia absoluta: |posición apostada - posición real|
         const diferencia = Math.abs(posicionApostada - posicionReal);
         positionDifference += diferencia;
         
-        // DEBUG: Para verificar el cálculo (puedes borrarlo después)
-        console.log(`Piloto: ${piloto}, Apostado: P${posicionApostada}, Real: P${posicionReal}, Diferencia: ${diferencia}`);
+        // Log para depurar (míralo en la consola F12)
+        console.log(`📊 ${piloto}: Apostado P${posicionApostada}, Real P${posicionReal}, Diferencia: ${diferencia}`);
     });
 
     // 4. Cálculo de Puntos
@@ -1068,6 +1080,7 @@ calculateRacePerformance(bet, result) {
         puntosTotales: pExactos + pPodio
     };
 }
+
 // ==================== PESTAÑA HISTORIAL (VOTOS DETALLADOS Y PUNTOS CORREGIDOS) ====================
 
 loadHistoryTab() {
