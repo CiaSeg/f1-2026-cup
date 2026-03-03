@@ -17,7 +17,7 @@ class F1CupApp {
             currentUser: localStorage.getItem('f1_user') || 'Varo',
             currentPage: 'landing',
             currentTab: 'race',
-            selectedGP: 2,
+            selectedGP: 0,
             selectedPodium: ['', '', ''],
             isAdmin: localStorage.getItem('f1_admin') === 'true',
             dataLoaded: false
@@ -240,7 +240,7 @@ class F1CupApp {
         
         // Establecer un GP por defecto (el primer GP real si estamos en el valor inicial)
         const firstRealGP = this.circuitsList.findIndex(c => !c.includes('TEST'));
-        if (firstRealGP !== -1 && this.state.selectedGP === 2) {
+        if (firstRealGP !== -1) {
             this.state.selectedGP = firstRealGP;
         }
         
