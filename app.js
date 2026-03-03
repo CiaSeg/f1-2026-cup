@@ -617,27 +617,35 @@ findNextUnvotedGP(user) {
     }
 
     loadMainApp() {
-        this.loadGPSelector();
-        
-        // --- AÑADE ESTAS LÍNEAS ---
-        const nextGPIndex = this.findNextUnvotedGP(this.state.currentUser);
-        if (nextGPIndex !== -1) {
-            this.state.selectedGP = nextGPIndex;
-            
-            // Actualizar el selector visual
-            const gpSelect = document.getElementById('gp-select');
-            if (gpSelect) gpSelect.value = nextGPIndex;
-        }
-        // -------------------------
-        
-        this.updateCircuitInfo();
-        this.loadLastUserBet();
-        this.loadDriverSelectors();
-        this.loadUserBetForCurrentGP();
-        this.loadTabContent(this.state.currentTab);
-        
-        this.updateAdminButton();
-} 
+    this.loadGPSelector();
+    
+    // --- CORREGIDO: Buscar siguiente GP NO VOTADO después de cargar datos ---
+    const nextGPIndex = this.findNextUnvotedGP(this.state.currentUser);
+    
+    // SOLO si encontramos un GP no votado, actualizamos selectedGP
+    if (nextGPIndex !== -1) {
+        this.state.selectedGP = nextGPIndex;
+        console.log(`🎯 Cargando GP no votado: ${this.circuitsList[nextGPIndex]}`);
+    } else {
+        // Si no hay GPs pendientes (ya votó todos), mantenemos el que estaba
+        console.log(`🏁 Ya votaste todos los GPs, mostrando: ${this.circuitsList[this.state.selectedGP]}`);
+    }
+    
+    // Actualizar el selector visual con el valor correcto
+    const gpSelect = document.getElementById('gp-select');
+    if (gpSelect) {
+        gpSelect.value = this.state.selectedGP;
+    }
+    // -------------------------
+    
+    this.updateCircuitInfo();
+    this.loadLastUserBet();
+    this.loadDriverSelectors();
+    this.loadUserBetForCurrentGP();
+    this.loadTabContent(this.state.currentTab);
+    
+    this.updateAdminButton();
+}
 
     // ==================== SELECTORES Y FORMULARIOS ====================
     
@@ -1021,17 +1029,26 @@ calculateRacePerformance(bet, result) {
         }
     }
 
-    // 3. Diferencia Real (1-22)
+    // 3. Diferencia Real (1-22) - VERSIÓN CORREGIDA
     betPodium.forEach((piloto, index) => {
-        const posicionApostada = index + 1;
-        let posicionReal = 22;
+        const posicionApostada = index + 1; // 1, 2 o 3
+        let posicionReal = 22; // Por defecto 22 si no se encuentra
+        
+        // Buscar en qué posición REAL quedó el piloto (P1 a P22)
         for (let p = 1; p <= 22; p++) {
             if (result[`P${p}`] === piloto) {
                 posicionReal = p;
                 break;
             }
         }
-        positionDifference += Math.abs(posicionApostada - posicionReal);
+        
+        // CALCULAR DIFERENCIA ABSOLUTA
+        // Si apostó P3 (posición 3) y quedó P12 (posición 12) -> |3 - 12| = 9
+        const diferencia = Math.abs(posicionApostada - posicionReal);
+        positionDifference += diferencia;
+        
+        // DEBUG: Para verificar el cálculo (puedes borrarlo después)
+        console.log(`Piloto: ${piloto}, Apostado: P${posicionApostada}, Real: P${posicionReal}, Diferencia: ${diferencia}`);
     });
 
     // 4. Cálculo de Puntos
