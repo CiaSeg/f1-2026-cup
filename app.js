@@ -637,8 +637,7 @@ findNextUnvotedGP(user) {
         this.loadTabContent(this.state.currentTab);
         
         this.updateAdminButton();
-}
-    }
+} 
 
     // ==================== SELECTORES Y FORMULARIOS ====================
     
