@@ -966,7 +966,7 @@ updateCircuitInfo() {
         }
     }
 
-// ==================== PESTAÑA HISTORIAL (VERSIÓN DEFINITIVA) ====================
+// ==================== PESTAÑA HISTORIAL (VOTOS DETALLADOS Y PUNTOS CORREGIDOS) ====================
 
 loadHistoryTab() {
     const tabContent = document.getElementById('tab-history');
@@ -991,26 +991,23 @@ loadHistoryTab() {
 
         let diffVaro = null, diffCia = null;
         let resumenVaro = "Sin apuesta", resumenCia = "Sin apuesta";
-        let exactosVaro = 0, podioVaro = 0;
-        let exactosCia = 0, podioCia = 0;
+        let votoVaro = "---", votoCia = "---";
         let puntosVaro = 0, puntosCia = 0;
 
         betsForRace.forEach(bet => {
             const player = bet.Jugador;
             const betPodium = [bet.P1, bet.P2, bet.P3];
+            const podioTexto = betPodium.join(' - ');
             
             // 1. Cálculo de Aciertos Exactos
             let exactMatches = 0;
             for (let i = 0; i < 3; i++) {
-                if (betPodium[i] === realPodium[i]) {
-                    exactMatches++;
-                }
+                if (betPodium[i] === realPodium[i]) exactMatches++;
             }
             
             // 2. Cálculo de Pilotos en Podio PERO en lugar incorrecto (Exclusivo)
             let podioIncorrecto = 0;
             betPodium.forEach((piloto, index) => {
-                // Está en el podio real PERO no en la posición que apostaste
                 if (realPodium.includes(piloto) && piloto !== realPodium[index]) {
                     podioIncorrecto++;
                 }
@@ -1020,44 +1017,33 @@ loadHistoryTab() {
             let positionDifference = 0;
             betPodium.forEach((piloto, index) => {
                 const realIndex = realPodium.indexOf(piloto);
-                if (realIndex !== -1) {
-                    positionDifference += Math.abs(index - realIndex);
-                } else {
-                    positionDifference += 3; // Penalización si no está en podio
-                }
+                positionDifference += (realIndex !== -1) ? Math.abs(index - realIndex) : 3;
             });
 
-            // 4. Calcular puntos según las nuevas reglas
-            let puntosExactos = 0;
+            // 4. Calcular puntos según reglas
+            let pExactos = 0;
             switch(exactMatches) {
-                case 1: puntosExactos = 5; break;
-                case 2: puntosExactos = 4; break;
-                case 3: puntosExactos = 3; break;
+                case 1: pExactos = 5; break;
+                case 2: pExactos = 4; break;
+                case 3: pExactos = 3; break;
             }
-            
-            const puntosPodio = podioIncorrecto * 2;
-            const puntosCarrera = puntosExactos + puntosPodio;
+            const pPodio = podioIncorrecto * 2;
+            const pTotal = pExactos + pPodio;
 
             if (player === 'Varo') {
-                exactosVaro = exactMatches;
-                podioVaro = podioIncorrecto; // Solo los de lugar incorrecto
+                votoVaro = podioTexto;
                 diffVaro = positionDifference;
-                puntosVaro = puntosCarrera;
-                
-                desglose.Varo.exactos += puntosExactos;
-                desglose.Varo.podio += puntosPodio;
-                
-                resumenVaro = `🎯 ${exactMatches} exacto(s) (${puntosExactos}pts) | 🥉 ${podioIncorrecto} podio lugar inc. (${puntosPodio}pts) | 📏 Dif: ${positionDifference}`;
+                puntosVaro = pTotal;
+                desglose.Varo.exactos += pExactos;
+                desglose.Varo.podio += pPodio;
+                resumenVaro = `🎯 ${exactMatches} exactos (${pExactos}pts) | 🥉 ${podioIncorrecto} podio inc. (${pPodio}pts) | 📏 Dif: ${positionDifference}`;
             } else {
-                exactosCia = exactMatches;
-                podioCia = podioIncorrecto; // Solo los de lugar incorrecto
+                votoCia = podioTexto;
                 diffCia = positionDifference;
-                puntosCia = puntosCarrera;
-                
-                desglose.Cía.exactos += puntosExactos;
-                desglose.Cía.podio += puntosPodio;
-                
-                resumenCia = `🎯 ${exactMatches} exacto(s) (${puntosExactos}pts) | 🥉 ${podioIncorrecto} podio lugar inc. (${puntosPodio}pts) | 📏 Dif: ${positionDifference}`;
+                puntosCia = pTotal;
+                desglose.Cía.exactos += pExactos;
+                desglose.Cía.podio += pPodio;
+                resumenCia = `🎯 ${exactMatches} exactos (${pExactos}pts) | 🥉 ${podioIncorrecto} podio inc. (${pPodio}pts) | 📏 Dif: ${positionDifference}`;
             }
         });
 
@@ -1066,179 +1052,123 @@ loadHistoryTab() {
         if (diffVaro !== null && diffCia !== null) {
             if (diffVaro < diffCia) { 
                 desglose.Varo.diferencia++; 
-                extraVaro = " ⭐ (+1 Extra)"; 
+                extraVaro = " ⭐ (+1 Dif)"; 
             }
             else if (diffCia < diffVaro) { 
                 desglose.Cía.diferencia++; 
-                extraCia = " ⭐ (+1 Extra)"; 
+                extraCia = " ⭐ (+1 Dif)"; 
             }
-            // Si son iguales, nadie se lleva el punto extra
         }
 
-        // Formatear el nombre de la carrera (sin fecha)
         const carreraNombre = carrera.split(' (')[0];
         
         detalleCarrerasHTML += `
-            <div class="history-race-card">
-                <div class="history-race-header" style="font-weight: 900; color: var(--f1-red); margin-bottom: 8px; font-size: 1rem; text-transform: uppercase;">
-                    ${carreraNombre}
+            <div class="history-race-card" style="background: rgba(255,255,255,0.05); padding: 15px; border-radius: 12px; margin-bottom: 15px; border-left: 4px solid var(--f1-red);">
+                <div style="font-weight: 900; color: var(--f1-red); text-transform: uppercase; margin-bottom: 10px; font-size: 1rem;">${carreraNombre}</div>
+                
+                <div style="background: rgba(0,0,0,0.3); padding: 8px; border-radius: 6px; margin-bottom: 12px; font-size: 0.9rem; border: 1px solid rgba(255,255,255,0.1);">
+                    <span style="color: #aaa;">🏁 PODIO REAL:</span> <strong style="color: #fff;">${realPodium.join(' - ')}</strong>
                 </div>
-                <div class="history-race-podium" style="font-weight: bold; margin-bottom: 10px; color: #eee; font-size: 0.9rem;">
-                    🏁 Podio Real: <strong style="color: #fff;">${realPodium.join(' - ')}</strong>
+
+                <div style="display: grid; gap: 10px;">
+                    <div style="padding-left: 10px; border-left: 3px solid #FFD700; background: rgba(255, 215, 0, 0.03); padding-top: 5px; padding-bottom: 5px;">
+                        <div style="font-size: 0.85rem; color: #FFD700; font-weight: bold; margin-bottom: 2px;">VARO APOSTÓ: <span style="color: #eee; font-weight: normal;">${votoVaro}</span></div>
+                        <div style="font-size: 0.75rem; color: #bbb;">${resumenVaro}${extraVaro}</div>
+                    </div>
+                    
+                    <div style="padding-left: 10px; border-left: 3px solid #00D4FF; background: rgba(0, 212, 255, 0.03); padding-top: 5px; padding-bottom: 5px;">
+                        <div style="font-size: 0.85rem; color: #00D4FF; font-weight: bold; margin-bottom: 2px;">CÍA APOSTÓ: <span style="color: #eee; font-weight: normal;">${votoCia}</span></div>
+                        <div style="font-size: 0.75rem; color: #bbb;">${resumenCia}${extraCia}</div>
+                    </div>
                 </div>
-                <div class="history-player-detail ${betsForRace.some(b => b.Jugador === 'Varo') ? '' : 'no-bet'}" 
-                     style="margin: 8px 0; color: ${betsForRace.some(b => b.Jugador === 'Varo') ? '#bbb' : '#666'}; line-height: 1.4;">
-                    <span class="player-label" style="color: #FFD700; font-weight: bold;">VARO:</span> 
-                    ${resumenVaro}${extraVaro}
-                    ${betsForRace.some(b => b.Jugador === 'Varo') ? '' : ' (Sin apuesta)'}
+
+                <div style="margin-top: 10px; padding-top: 8px; border-top: 1px solid rgba(255,255,255,0.1); font-size: 0.85rem; color: var(--f1-red); font-weight: bold; text-align: right; letter-spacing: 0.5px;">
+                    PUNTOS CARRERA: VARO ${puntosVaro} | CÍA ${puntosCia}
                 </div>
-                <div class="history-player-detail ${betsForRace.some(b => b.Jugador === 'Cía') ? '' : 'no-bet'}" 
-                     style="margin: 8px 0; color: ${betsForRace.some(b => b.Jugador === 'Cía') ? '#bbb' : '#666'}; line-height: 1.4;">
-                    <span class="player-label" style="color: #00D4FF; font-weight: bold;">CÍA:</span> 
-                    ${resumenCia}${extraCia}
-                    ${betsForRace.some(b => b.Jugador === 'Cía') ? '' : ' (Sin apuesta)'}
-                </div>
-                ${puntosVaro + puntosCia > 0 ? `
-                <div style="margin-top: 10px; padding-top: 8px; border-top: 1px solid rgba(255,255,255,0.1); font-size: 0.85rem; color: var(--f1-red);">
-                    <strong>Puntos de la carrera:</strong> VARO: ${puntosVaro}pts | CÍA: ${puntosCia}pts
-                </div>
-                ` : ''}
             </div>
         `;
     });
 
-    // Calcular puntos del Mundial (si existen resultados finales)
+    // Calcular puntos del Mundial (SISTEMA EXCLUSIVO)
     if (this.firebaseData.finalResults) {
         const final = this.firebaseData.finalResults;
-        
         this.firebaseData.seasonBets.forEach(bet => {
             const player = bet.Jugador;
-            let puntosMundial = 0;
-            
-            // MUNDIAL PILOTOS
-            const realDrivers = [final.D1, final.D2, final.D3];
-            const betDrivers = [bet.D_P1, bet.D_P2, bet.D_P3];
-
-            betDrivers.forEach((driver, index) => {
-                if (!driver) return;
-                if (driver === realDrivers[index]) {
-                    // Posición exacta
-                    if (index === 0) puntosMundial += 15;
-                    else if (index === 1) puntosMundial += 12;
-                    else if (index === 2) puntosMundial += 9;
-                } else if (realDrivers.includes(driver)) {
-                    // Está en el podio pero posición cambiada
-                    puntosMundial += 6;
-                }
+            let ptsM = 0;
+            const rD = [final.D1, final.D2, final.D3];
+            const bD = [bet.D_P1, bet.D_P2, bet.D_P3];
+            bD.forEach((d, i) => {
+                if (!d) return;
+                if (d === rD[i]) ptsM += (i===0?15:i===1?12:9);
+                else if (rD.includes(d)) ptsM += 6;
             });
-
-            // MUNDIAL CONSTRUCTORES
-            const realTeams = [final.C1, final.C2, final.C3];
-            const betTeams = [bet.C_P1, bet.C_P2, bet.C_P3];
-
-            betTeams.forEach((team, index) => {
-                if (!team) return;
-                if (team === realTeams[index]) {
-                    // Posición exacta
-                    if (index === 0) puntosMundial += 10;
-                    else if (index === 1) puntosMundial += 8;
-                    else if (index === 2) puntosMundial += 6;
-                } else if (realTeams.includes(team)) {
-                    // Está en el podio pero posición cambiada
-                    puntosMundial += 4;
-                }
+            const rC = [final.C1, final.C2, final.C3];
+            const bC = [bet.C_P1, bet.C_P2, bet.C_P3];
+            bC.forEach((c, i) => {
+                if (!c) return;
+                if (c === rC[i]) ptsM += (i===0?10:i===1?8:6);
+                else if (rC.includes(c)) ptsM += 4;
             });
-            
-            if (player === 'Varo') {
-                desglose.Varo.mundial = puntosMundial;
-            } else {
-                desglose.Cía.mundial = puntosMundial;
-            }
+            if (player === 'Varo') desglose.Varo.mundial = ptsM;
+            else desglose.Cía.mundial = ptsM;
         });
     }
 
-    // Calcular totales
+    // Calcular totales finales
     Object.keys(desglose).forEach(p => {
         desglose[p].total = desglose[p].exactos + desglose[p].podio + desglose[p].diferencia + desglose[p].mundial;
     });
 
+    // Renderizar la tabla de puntos acumulados y el historial detallado
     tabContent.innerHTML = `
         <div class="mobile-card">
             <p class="sub-text">📊 TABLA DE PUNTOS ACUMULADOS</p>
             <table class="bets-table" style="width: 100%; border-collapse: collapse; margin: 15px 0; background: rgba(255,255,255,0.03); border-radius: 10px; overflow: hidden;">
                 <thead>
                     <tr>
-                        <th style="background: rgba(225,6,0,0.2); color: var(--f1-red); padding: 15px; text-align: left; font-weight: 700; text-transform: uppercase; font-size: 0.9rem; letter-spacing: 1px;">Concepto</th>
-                        <th class="varo" style="color: #FFD700; font-weight: bold; text-align: center;">VARO</th>
-                        <th class="cia" style="color: #00D4FF; font-weight: bold; text-align: center;">CÍA</th>
+                        <th style="background: rgba(225,6,0,0.2); color: var(--f1-red); padding: 15px; text-align: left; font-weight: 700; text-transform: uppercase; font-size: 0.9rem;">Concepto</th>
+                        <th style="color: #FFD700; text-align: center;">VARO</th>
+                        <th style="color: #00D4FF; text-align: center;">CÍA</th>
                     </tr>
                 </thead>
                 <tbody>
-                    <tr style="transition: all 0.3s ease;">
-                        <td style="padding: 15px; border-bottom: 1px solid rgba(255,255,255,0.05); color: var(--f1-white);">Aciertos Exactos (3-5 pts)</td>
-                        <td style="text-align: center; font-weight: bold; color: #FFD700;">${desglose.Varo.exactos} pts</td>
-                        <td style="text-align: center; font-weight: bold; color: #00D4FF;">${desglose.Cía.exactos} pts</td>
+                    <tr>
+                        <td style="padding: 12px; border-bottom: 1px solid rgba(255,255,255,0.05);">Aciertos Exactos</td>
+                        <td style="text-align: center; color: #FFD700; font-weight: bold;">${desglose.Varo.exactos} pts</td>
+                        <td style="text-align: center; color: #00D4FF; font-weight: bold;">${desglose.Cía.exactos} pts</td>
                     </tr>
-                    <tr style="transition: all 0.3s ease;">
-                        <td style="padding: 15px; border-bottom: 1px solid rgba(255,255,255,0.05); color: var(--f1-white);">Pilotos en Podio (2 pts c/u)</td>
-                        <td style="text-align: center; font-weight: bold; color: #FFD700;">${desglose.Varo.podio} pts</td>
-                        <td style="text-align: center; font-weight: bold; color: #00D4FF;">${desglose.Cía.podio} pts</td>
+                    <tr>
+                        <td style="padding: 12px; border-bottom: 1px solid rgba(255,255,255,0.05);">Podio (Lugar Inc.)</td>
+                        <td style="text-align: center; color: #FFD700; font-weight: bold;">${desglose.Varo.podio} pts</td>
+                        <td style="text-align: center; color: #00D4FF; font-weight: bold;">${desglose.Cía.podio} pts</td>
                     </tr>
-                    <tr style="transition: all 0.3s ease;">
-                        <td style="padding: 15px; border-bottom: 1px solid rgba(255,255,255,0.05); color: var(--f1-white);">Puntos Extra Cercanía</td>
-                        <td style="text-align: center; font-weight: bold; color: #FFD700;">${desglose.Varo.diferencia} pts</td>
-                        <td style="text-align: center; font-weight: bold; color: #00D4FF;">${desglose.Cía.diferencia} pts</td>
+                    <tr>
+                        <td style="padding: 12px; border-bottom: 1px solid rgba(255,255,255,0.05);">Puntos Extra Dif.</td>
+                        <td style="text-align: center; color: #FFD700; font-weight: bold;">${desglose.Varo.diferencia} pts</td>
+                        <td style="text-align: center; color: #00D4FF; font-weight: bold;">${desglose.Cía.diferencia} pts</td>
                     </tr>
                     ${desglose.Varo.mundial > 0 || desglose.Cía.mundial > 0 ? `
-                    <tr style="transition: all 0.3s ease;">
-                        <td style="padding: 15px; border-bottom: 1px solid rgba(255,255,255,0.05); color: var(--f1-white);">Apuestas Mundial</td>
-                        <td style="text-align: center; font-weight: bold; color: #FFD700;">${desglose.Varo.mundial} pts</td>
-                        <td style="text-align: center; font-weight: bold; color: #00D4FF;">${desglose.Cía.mundial} pts</td>
+                    <tr>
+                        <td style="padding: 12px; border-bottom: 1px solid rgba(255,255,255,0.05);">Mundial (Season)</td>
+                        <td style="text-align: center; color: #FFD700; font-weight: bold;">${desglose.Varo.mundial} pts</td>
+                        <td style="text-align: center; color: #00D4FF; font-weight: bold;">${desglose.Cía.mundial} pts</td>
                     </tr>
                     ` : ''}
-                    <tr class="total-row" style="background: rgba(225,6,0,0.1); font-size: 1.1rem;">
-                        <td style="padding: 15px; color: var(--f1-white); font-weight: bold;">TOTAL</td>
-                        <td style="text-align: center; font-weight: 900; color: #FFD700; text-shadow: 0 2px 4px rgba(0,0,0,0.3);">${desglose.Varo.total} pts</td>
-                        <td style="text-align: center; font-weight: 900; color: #00D4FF; text-shadow: 0 2px 4px rgba(0,0,0,0.3);">${desglose.Cía.total} pts</td>
+                    <tr style="background: rgba(225,6,0,0.15);">
+                        <td style="padding: 15px; font-weight: 900;">TOTAL</td>
+                        <td style="text-align: center; font-weight: 900; color: #FFD700; font-size: 1.1rem;">${desglose.Varo.total} pts</td>
+                        <td style="text-align: center; font-weight: 900; color: #00D4FF; font-size: 1.1rem;">${desglose.Cía.total} pts</td>
                     </tr>
                 </tbody>
             </table>
             
-            <p class="sub-text mt-30">🏁 DESGLOSE POR CARRERA</p>
-            <div class="history-races-container" style="margin-top: 15px; max-height: 400px; overflow-y: auto; padding-right: 10px;">
-                ${detalleCarrerasHTML || 
-                    '<div class="no-results" style="text-align: center; padding: 30px; color: rgba(255,255,255,0.5); font-style: italic;">No hay resultados publicados todavía. Los detalles aparecerán aquí cuando se publiquen.</div>'
-                }
-            </div>
-            
-            <div class="points-info mt-20">
-                <p class="sub-text" style="font-size: 0.8rem; margin-bottom: 10px;">SISTEMA DE PUNTOS</p>
-                <div class="points-rules" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 15px; margin-top: 15px;">
-                    <div class="rule-item" style="display: flex; align-items: center; gap: 15px; padding: 15px; background: rgba(255,255,255,0.02); border-radius: 10px; border: 1px solid rgba(225,6,0,0.1);">
-                        <span class="rule-point" style="background: var(--gradient-red); color: white; padding: 8px 16px; border-radius: 8px; font-weight: 800; font-size: 1rem; min-width: 70px; text-align: center; box-shadow: 0 4px 8px rgba(225,6,0,0.2);">5 pts</span>
-                        <span class="rule-text" style="color: var(--f1-light-gray); font-size: 0.95rem; flex: 1; font-weight: 600;">1 acierto exacto</span>
-                    </div>
-                    <div class="rule-item" style="display: flex; align-items: center; gap: 15px; padding: 15px; background: rgba(255,255,255,0.02); border-radius: 10px; border: 1px solid rgba(225,6,0,0.1);">
-                        <span class="rule-point" style="background: var(--gradient-red); color: white; padding: 8px 16px; border-radius: 8px; font-weight: 800; font-size: 1rem; min-width: 70px; text-align: center; box-shadow: 0 4px 8px rgba(225,6,0,0.2);">4 pts</span>
-                        <span class="rule-text" style="color: var(--f1-light-gray); font-size: 0.95rem; flex: 1; font-weight: 600;">2 aciertos exactos</span>
-                    </div>
-                    <div class="rule-item" style="display: flex; align-items: center; gap: 15px; padding: 15px; background: rgba(255,255,255,0.02); border-radius: 10px; border: 1px solid rgba(225,6,0,0.1);">
-                        <span class="rule-point" style="background: var(--gradient-red); color: white; padding: 8px 16px; border-radius: 8px; font-weight: 800; font-size: 1rem; min-width: 70px; text-align: center; box-shadow: 0 4px 8px rgba(225,6,0,0.2);">3 pts</span>
-                        <span class="rule-text" style="color: var(--f1-light-gray); font-size: 0.95rem; flex: 1; font-weight: 600;">3 aciertos exactos</span>
-                    </div>
-                    <div class="rule-item" style="display: flex; align-items: center; gap: 15px; padding: 15px; background: rgba(255,255,255,0.02); border-radius: 10px; border: 1px solid rgba(225,6,0,0.1);">
-                        <span class="rule-point" style="background: var(--gradient-red); color: white; padding: 8px 16px; border-radius: 8px; font-weight: 800; font-size: 1rem; min-width: 70px; text-align: center; box-shadow: 0 4px 8px rgba(225,6,0,0.2);">2 pts</span>
-                        <span class="rule-text" style="color: var(--f1-light-gray); font-size: 0.95rem; flex: 1; font-weight: 600;">Cada piloto en podio</span>
-                    </div>
-                    <div class="rule-item" style="display: flex; align-items: center; gap: 15px; padding: 15px; background: rgba(255,255,255,0.02); border-radius: 10px; border: 1px solid rgba(225,6,0,0.1);">
-                        <span class="rule-point" style="background: var(--gradient-red); color: white; padding: 8px 16px; border-radius: 8px; font-weight: 800; font-size: 1rem; min-width: 70px; text-align: center; box-shadow: 0 4px 8px rgba(225,6,0,0.2);">1 pt</span>
-                        <span class="rule-text" style="color: var(--f1-light-gray); font-size: 0.95rem; flex: 1; font-weight: 600;">Menor diferencia</span>
-                    </div>
-                </div>
+            <p class="sub-text mt-30">🏁 DETALLE DE CARRERAS</p>
+            <div class="history-races-container" style="margin-top: 15px;">
+                ${detalleCarrerasHTML || '<div class="no-results">Esperando resultados oficiales...</div>'}
             </div>
             
             <button onclick="window.f1App.refreshData()" class="btn btn-secondary w-100 mt-20">
-                <i class="fas fa-redo"></i> ACTUALIZAR HISTORIAL
+                <i class="fas fa-redo"></i> ACTUALIZAR DATOS
             </button>
         </div>
     `;
