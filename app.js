@@ -1,4 +1,4 @@
-// app.js - VERSIÓN DEFINITIVA Y FUNCIONAL
+// app.js - VERSIÓN REFACTORIZADA, CORREGIDA Y MEJORADA
 class F1CupApp {
     constructor() {
         console.log('🔄 Constructor F1CupApp iniciado');
@@ -26,7 +26,6 @@ class F1CupApp {
         // Datos estáticos
         this.data = {
             circuits: {
-                // Dentro de this.data.circuits
                 "TEST Barcelona (26-30 Ene)": { 
                     nombre: "Circuit de Barcelona-Catalunya - Shakedown", 
                     bandera: "./assets/circuitos/es.png", 
@@ -223,49 +222,42 @@ class F1CupApp {
             bets: [],
             results: [],
             seasonBets: [],
-            points: { Varo: 0, Cía: 0 }
+            points: { Varo: 0, Cía: 0 },
+            finalResults: null
         };
         
         this.init();
     }
-    
 
-    // En el constructor, después de cargar los datos:
-async init() {
-    console.log('🚀 Iniciando app...');
-    
-    // Configurar event listeners primero
-    this.setupEventListeners();
-    
-    // Cargar datos de Firebase
-    await this.loadFirebaseData();
-    
-    // --- AÑADE ESTO: Buscar primer GP no votado ---
-    const firstUnvoted = this.findNextUnvotedGP(this.state.currentUser);
-    if (firstUnvoted !== -1) {
-        this.state.selectedGP = firstUnvoted;
-        console.log(`🎯 Primer GP no votado: ${this.circuitsList[firstUnvoted]}`);
-    } else {
-        // Si ya votó todos, mostrar el primer GP real
+    async init() {
+        console.log('🚀 Iniciando app...');
+        
+        // Configurar event listeners primero
+        this.setupEventListeners();
+        
+        // Cargar datos de Firebase
+        await this.loadFirebaseData();
+        
+        // Establecer un GP por defecto (el primer GP real si estamos en el valor inicial)
         const firstRealGP = this.circuitsList.findIndex(c => !c.includes('TEST'));
-        if (firstRealGP !== -1) this.state.selectedGP = firstRealGP;
+        if (firstRealGP !== -1 && this.state.selectedGP === 2) {
+            this.state.selectedGP = firstRealGP;
+        }
+        
+        // Mostrar la app
+        setTimeout(() => {
+            const loading = document.getElementById('loading');
+            const app = document.getElementById('app');
+            
+            if (loading) loading.style.display = 'none';
+            if (app) app.style.display = 'block';
+            
+            this.updateUI();
+            this.scrollToTop();
+            this.checkAdminStatus();
+            
+        }, 500);
     }
-    // ---------------------------------------------
-    
-    // Mostrar la app
-    setTimeout(() => {
-        const loading = document.getElementById('loading');
-        const app = document.getElementById('app');
-        
-        if (loading) loading.style.display = 'none';
-        if (app) app.style.display = 'block';
-        
-        this.updateUI();
-        this.scrollToTop();
-        this.checkAdminStatus();
-        
-    }, 500);
-}
 
     // ==================== FIREBASE - MÉTODOS PRINCIPALES ====================
     
@@ -273,50 +265,47 @@ async init() {
         console.log('📥 Cargando datos de Firebase...');
         
         try {
-            // Cargar apuestas
-            const betsSnapshot = await this.db.ref('bets').once('value');
+            // Cargar todos los datos en paralelo para mayor eficiencia
+            const [betsSnapshot, resultsSnapshot, seasonSnapshot, finalSnapshot] = await Promise.all([
+                this.db.ref('bets').once('value'),
+                this.db.ref('results').once('value'),
+                this.db.ref('seasonBets').once('value'),
+                this.db.ref('finalResults').once('value')
+            ]);
+
             const betsData = betsSnapshot.val();
             this.firebaseData.bets = betsData ? Object.values(betsData) : [];
-            console.log(`✅ ${this.firebaseData.bets.length} apuestas cargadas`);
             
-            // Cargar resultados
-            const resultsSnapshot = await this.db.ref('results').once('value');
             const resultsData = resultsSnapshot.val();
             this.firebaseData.results = resultsData ? Object.values(resultsData) : [];
-            console.log(`✅ ${this.firebaseData.results.length} resultados cargados`);
             
-            // Cargar apuestas de temporada
-            const seasonSnapshot = await this.db.ref('seasonBets').once('value');
             const seasonData = seasonSnapshot.val();
             this.firebaseData.seasonBets = seasonData ? Object.values(seasonData) : [];
-            console.log(`✅ ${this.firebaseData.seasonBets.length} apuestas de temporada cargadas`);
             
-            this.state.dataLoaded = true;
-            // Dentro de loadFirebaseData(), añade esto al final de los try:
-            const finalSnapshot = await this.db.ref('finalResults').once('value');
             this.firebaseData.finalResults = finalSnapshot.val() || null;
-            console.log('✅ Resultados finales del mundial cargados');
+            
+            console.log(`✅ Datos cargados: ${this.firebaseData.bets.length} apuestas, ${this.firebaseData.results.length} resultados`);
+            this.state.dataLoaded = true;
             
         } catch (error) {
-            console.error('❌ Error cargando datos de Firebase:', error);
-            this.showNotification('⚠️ Error conectando con la base de datos', 'error');
+            console.error('❌ Error CRÍTICO cargando datos de Firebase:', error);
+            this.state.dataLoaded = false;
+            this.showNotification('⚠️ Error de conexión. Los datos podrían no estar actualizados.', 'error');
         }
     }
 
     async saveCurrentBet() {
-   
-    console.log('💾 Intentando guardar apuesta...');
-    
-    const currentGP = this.circuitsList[this.state.selectedGP];
+        console.log('💾 Intentando guardar apuesta...');
+        
+        const currentGP = this.circuitsList[this.state.selectedGP];
 
-    // --- NUEVA VALIDACIÓN PARA TESTS ---
-    if (currentGP.includes('TEST')) {
-        this.showNotification('🚫 No se permiten apuestas en sesiones de TEST', 'error');
-        return; // Detiene la ejecución aquí
-    }
-    // ------------------------------------
+        // Validación para sesiones de TEST
+        if (currentGP.includes('TEST')) {
+            this.showNotification('🚫 No se permiten apuestas en sesiones de TEST', 'error');
+            return;
+        }
 
-    const user = this.state.currentUser;
+        const user = this.state.currentUser;
         const selected = this.state.selectedPodium;
         
         // Validaciones
@@ -501,50 +490,83 @@ async init() {
     }
 
     async saveFinalResults() {
-    const finalData = {
-        D1: document.getElementById('final-d1').value,
-        D2: document.getElementById('final-d2').value,
-        D3: document.getElementById('final-d3').value,
-        C1: document.getElementById('final-c1').value,
-        C2: document.getElementById('final-c2').value,
-        C3: document.getElementById('final-c3').value
-    };
+        const finalData = {
+            D1: document.getElementById('final-d1').value,
+            D2: document.getElementById('final-d2').value,
+            D3: document.getElementById('final-d3').value,
+            C1: document.getElementById('final-c1').value,
+            C2: document.getElementById('final-c2').value,
+            C3: document.getElementById('final-c3').value
+        };
 
-    try {
-        await this.db.ref('finalResults').set(finalData);
-        this.showNotification('🏆 Resultados finales guardados y puntos actualizados', 'success');
-        this.refreshData(); // Recarga todo para aplicar los puntos
-    } catch (e) {
-        this.showNotification('Error al guardar', 'error');
+        // Validaciones básicas
+        if (!finalData.D1 || !finalData.D2 || !finalData.D3 || !finalData.C1 || !finalData.C2 || !finalData.C3) {
+            this.showNotification('❌ Debes completar todas las selecciones', 'error');
+            return;
+        }
+
+        const drivers = [finalData.D1, finalData.D2, finalData.D3];
+        const constructors = [finalData.C1, finalData.C2, finalData.C3];
+
+        if (new Set(drivers).size !== 3) {
+            this.showNotification('❌ Los pilotos deben ser diferentes', 'error');
+            return;
+        }
+
+        if (new Set(constructors).size !== 3) {
+            this.showNotification('❌ Los constructores deben ser diferentes', 'error');
+            return;
+        }
+
+        try {
+            await this.db.ref('finalResults').set(finalData);
+            this.firebaseData.finalResults = finalData;
+            this.showNotification('🏆 Resultados finales guardados y puntos actualizados', 'success');
+            this.calculateAllPoints(); // Recalcular puntos con los nuevos resultados
+            this.refreshData(); // Recargar UI
+        } catch (e) {
+            console.error('Error guardando resultados finales:', e);
+            this.showNotification('Error al guardar', 'error');
+        }
     }
-}
-// Busca el siguiente GP que NO sea TEST y que el usuario NO haya votado
-findNextUnvotedGP(user) {
-    const nextGPIndex = this.circuitsList.findIndex(circuitName => {
-        // 1. Ignorar tests
-        if (circuitName.includes('TEST')) return false;
 
-        // 2. Verificar si ya votó
-        const alreadyBet = this.firebaseData.bets.some(bet => 
-            bet.Carrera === circuitName && bet.Jugador === user
-        );
-        
-        return !alreadyBet; // true = no ha votado
-    });
+    // Busca el siguiente GP que NO sea TEST y que el usuario NO haya votado
+    findNextUnvotedGP(user) {
+        const nextGPIndex = this.circuitsList.findIndex(circuitName => {
+            // 1. Ignorar tests
+            if (circuitName.includes('TEST')) return false;
 
-    return nextGPIndex; // Devuelve -1 si no encuentra
-}
+            // 2. Verificar si ya votó
+            const alreadyBet = this.firebaseData.bets.some(bet => 
+                bet.Carrera === circuitName && bet.Jugador === user
+            );
+            
+            return !alreadyBet; // true = no ha votado
+        });
+
+        return nextGPIndex; // Devuelve -1 si no encuentra
+    }
+
     // ==================== MÉTODOS BÁSICOS DE LA APP ====================
     
     setupEventListeners() {
         console.log('🔧 Configurando event listeners...');
         
         // Botones principales
-        document.getElementById('btn-varo').onclick = () => this.selectUser('Varo');
-        document.getElementById('btn-cia').onclick = () => this.selectUser('Cía');
-        document.getElementById('btn-back').onclick = () => this.goToLanding();
-        document.getElementById('btn-refresh').onclick = () => this.refreshData();
-        document.getElementById('btn-save-bet').onclick = () => this.saveCurrentBet();
+        const btnVaro = document.getElementById('btn-varo');
+        if (btnVaro) btnVaro.onclick = () => this.selectUser('Varo');
+        
+        const btnCia = document.getElementById('btn-cia');
+        if (btnCia) btnCia.onclick = () => this.selectUser('Cía');
+        
+        const btnBack = document.getElementById('btn-back');
+        if (btnBack) btnBack.onclick = () => this.goToLanding();
+        
+        const btnRefresh = document.getElementById('btn-refresh');
+        if (btnRefresh) btnRefresh.onclick = () => this.refreshData();
+        
+        const btnSaveBet = document.getElementById('btn-save-bet');
+        if (btnSaveBet) btnSaveBet.onclick = () => this.saveCurrentBet();
 
         // Tabs
         document.querySelectorAll('.tab-btn').forEach(btn => {
@@ -555,11 +577,14 @@ findNextUnvotedGP(user) {
         });
 
         // Selector de GP
-        document.getElementById('gp-select').onchange = (e) => {
-            this.state.selectedGP = parseInt(e.target.value);
-            this.updateCircuitInfo();
-            this.loadUserBetForCurrentGP();
-        };
+        const gpSelect = document.getElementById('gp-select');
+        if (gpSelect) {
+            gpSelect.onchange = (e) => {
+                this.state.selectedGP = parseInt(e.target.value);
+                this.updateCircuitInfo();
+                this.loadUserBetForCurrentGP();
+            };
+        }
 
         // Selectores de pilotos
         ['p1', 'p2', 'p3'].forEach((pos, index) => {
@@ -577,6 +602,17 @@ findNextUnvotedGP(user) {
         if (btnAdmin) {
             btnAdmin.onclick = () => this.toggleAdminMode();
         }
+        
+        const globalAdminBtn = document.getElementById('global-admin-btn');
+        if (globalAdminBtn) {
+            globalAdminBtn.onclick = () => {
+                if (this.state.isAdmin) {
+                    this.toggleAdminMode();
+                } else {
+                    document.getElementById('admin-overlay').style.display = 'flex';
+                }
+            };
+        }
     }
     
     selectUser(user) {
@@ -590,21 +626,23 @@ findNextUnvotedGP(user) {
             display.textContent = user.toUpperCase();
         }
 
-        // --- REEMPLAZA TODO ESTO (desde "LÓGICA PARA BUSCAR" hasta "-------") ---
+        // Buscar el siguiente GP no votado
         const nextGPIndex = this.findNextUnvotedGP(user);
 
-        // Si encontramos uno, lo seleccionamos
         if (nextGPIndex !== -1) {
             this.state.selectedGP = nextGPIndex;
             console.log(`🎯 Saltando automáticamente al GP: ${this.circuitsList[nextGPIndex]}`);
+        } else {
+            // Si ya votó todos, mostrar el último GP de la lista
+            this.state.selectedGP = this.circuitsList.length - 1;
+            console.log(`🏁 Ya votaste todos los GPs, mostrando el último`);
         }
-        // ----------------------------------------------------------------------
 
         this.state.currentPage = 'main';
         this.updateUI();
         
         this.loadLastUserBet();
-        this.loadUserBetForCurrentGP();
+        // loadUserBetForCurrentGP se llamará dentro de loadMainApp
     }
 
     goToLanding() {
@@ -630,35 +668,17 @@ findNextUnvotedGP(user) {
     }
 
     loadMainApp() {
-    this.loadGPSelector();
-    
-    // --- CORREGIDO: Buscar siguiente GP NO VOTADO después de cargar datos ---
-    const nextGPIndex = this.findNextUnvotedGP(this.state.currentUser);
-    
-    // SOLO si encontramos un GP no votado, actualizamos selectedGP
-    if (nextGPIndex !== -1) {
-        this.state.selectedGP = nextGPIndex;
-        console.log(`🎯 Cargando GP no votado: ${this.circuitsList[nextGPIndex]}`);
-    } else {
-        // Si no hay GPs pendientes (ya votó todos), mantenemos el que estaba
-        console.log(`🏁 Ya votaste todos los GPs, mostrando: ${this.circuitsList[this.state.selectedGP]}`);
+        console.log(`🏁 Cargando MainApp para GP: ${this.circuitsList[this.state.selectedGP]}`);
+        
+        this.loadGPSelector();
+        this.updateCircuitInfo();
+        this.loadLastUserBet();
+        this.loadDriverSelectors();
+        this.loadUserBetForCurrentGP();
+        this.loadTabContent(this.state.currentTab);
+        
+        this.updateAdminButton();
     }
-    
-    // Actualizar el selector visual con el valor correcto
-    const gpSelect = document.getElementById('gp-select');
-    if (gpSelect) {
-        gpSelect.value = this.state.selectedGP;
-    }
-    // -------------------------
-    
-    this.updateCircuitInfo();
-    this.loadLastUserBet();
-    this.loadDriverSelectors();
-    this.loadUserBetForCurrentGP();
-    this.loadTabContent(this.state.currentTab);
-    
-    this.updateAdminButton();
-}
 
     // ==================== SELECTORES Y FORMULARIOS ====================
     
@@ -678,13 +698,13 @@ findNextUnvotedGP(user) {
         select.value = this.state.selectedGP;
     }
 
-updateCircuitInfo() {
+    updateCircuitInfo() {
         const circuitKey = this.circuitsList[this.state.selectedGP];
         const info = this.data.circuits[circuitKey];
         
         if (!info) return;
         
-        // 1. Actualizar elementos visuales del circuito
+        // Actualizar elementos visuales del circuito
         const name = document.getElementById('circuit-name');
         const flag = document.getElementById('circuit-flag');
         const map = document.getElementById('circuit-map');
@@ -695,14 +715,14 @@ updateCircuitInfo() {
         if (map) map.src = info.mapa;
         if (fecha) fecha.textContent = info.fecha;
 
-        // 2. Control del botón de guardar para sesiones de TEST
+        // Control del botón de guardar para sesiones de TEST
         const currentGP = this.circuitsList[this.state.selectedGP];
         const saveBtn = document.getElementById('btn-save-bet');
 
         if (saveBtn) {
             if (currentGP.includes('TEST')) {
                 saveBtn.style.opacity = '0.5';
-                saveBtn.style.pointerEvents = 'none'; // Bloquea clics totalmente
+                saveBtn.style.pointerEvents = 'none';
                 saveBtn.innerHTML = '<i class="fas fa-ban"></i> APUESTAS CERRADAS';
             } else {
                 saveBtn.style.opacity = '1';
@@ -730,11 +750,10 @@ updateCircuitInfo() {
 
     updateDriverImage(imgId, driverName) {
         const img = document.getElementById(imgId);
-        if (!img || !driverName) return;
+        if (!img) return;
         
-        const driverData = this.data.drivers[driverName];
-        if (driverData && driverData.foto) {
-            img.src = driverData.foto;
+        if (driverName && this.data.drivers[driverName]) {
+            img.src = this.data.drivers[driverName].foto;
             img.style.display = 'block';
         } else {
             img.style.display = 'none';
@@ -752,7 +771,8 @@ updateCircuitInfo() {
         const userBets = this.firebaseData.bets.filter(bet => bet.Jugador === user);
         
         if (userBets.length > 0) {
-            const lastBet = userBets[userBets.length - 1];
+            // Ordenar por timestamp y obtener la más reciente
+            const lastBet = userBets.sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0))[0];
             this.state.lastUserBet = lastBet;
             
             const card = document.getElementById('last-bet-card');
@@ -870,12 +890,12 @@ updateCircuitInfo() {
                 this.loadAdminPanel();
                 break;
             case 'history':
-                this.loadHistoryTab(); // Cambiado de loadTab a loadHistoryTab
+                this.loadHistoryTab();
                 break;
         }
     }
 
-   // ==================== PESTAÑA TEMPORADA (ACTUALIZADA) ====================
+    // ==================== PESTAÑA TEMPORADA ====================
     
     loadSeasonTab() {
         const tabContent = document.getElementById('tab-season');
@@ -893,7 +913,7 @@ updateCircuitInfo() {
                         </div>
                         <div class="form-group">
                             <label class="form-label">CAMPEÓN DEL MUNDO (15 pts)</label>
-                            <select id="season-p1" class="form-select" onchange="window.f1App.updateSeasonImage('season-p1-img', this.value, 'driver')">
+                            <select id="season-p1" class="form-select">
                                 <option value="">Selecciona piloto</option>
                                 ${this.driversList.map(driver => `<option value="${driver}">${driver}</option>`).join('')}
                             </select>
@@ -905,7 +925,7 @@ updateCircuitInfo() {
                         </div>
                         <div class="form-group">
                             <label class="form-label">SUBCAMPEÓN (12 pts)</label>
-                            <select id="season-p2" class="form-select" onchange="window.f1App.updateSeasonImage('season-p2-img', this.value, 'driver')">
+                            <select id="season-p2" class="form-select">
                                 <option value="">Selecciona piloto</option>
                                 ${this.driversList.map(driver => `<option value="${driver}">${driver}</option>`).join('')}
                             </select>
@@ -917,7 +937,7 @@ updateCircuitInfo() {
                         </div>
                         <div class="form-group">
                             <label class="form-label">TERCER LUGAR (9 pts)</label>
-                            <select id="season-p3" class="form-select" onchange="window.f1App.updateSeasonImage('season-p3-img', this.value, 'driver')">
+                            <select id="season-p3" class="form-select">
                                 <option value="">Selecciona piloto</option>
                                 ${this.driversList.map(driver => `<option value="${driver}">${driver}</option>`).join('')}
                             </select>
@@ -933,7 +953,7 @@ updateCircuitInfo() {
                         </div>
                         <div class="form-group">
                             <label class="form-label">CAMPEÓN (10 pts)</label>
-                            <select id="season-c1" class="form-select" onchange="window.f1App.updateSeasonImage('season-c1-img', this.value, 'team')">
+                            <select id="season-c1" class="form-select">
                                 <option value="">Selecciona equipo</option>
                                 ${this.data.constructors.map(team => `<option value="${team}">${team}</option>`).join('')}
                             </select>
@@ -945,7 +965,7 @@ updateCircuitInfo() {
                         </div>
                         <div class="form-group">
                             <label class="form-label">SUBCAMPEÓN (8 pts)</label>
-                            <select id="season-c2" class="form-select" onchange="window.f1App.updateSeasonImage('season-c2-img', this.value, 'team')">
+                            <select id="season-c2" class="form-select">
                                 <option value="">Selecciona equipo</option>
                                 ${this.data.constructors.map(team => `<option value="${team}">${team}</option>`).join('')}
                             </select>
@@ -957,7 +977,7 @@ updateCircuitInfo() {
                         </div>
                         <div class="form-group">
                             <label class="form-label">TERCER LUGAR (6 pts)</label>
-                            <select id="season-c3" class="form-select" onchange="window.f1App.updateSeasonImage('season-c3-img', this.value, 'team')">
+                            <select id="season-c3" class="form-select">
                                 <option value="">Selecciona equipo</option>
                                 ${this.data.constructors.map(team => `<option value="${team}">${team}</option>`).join('')}
                             </select>
@@ -971,7 +991,15 @@ updateCircuitInfo() {
             </div>
         `;
         
+        // Asignar event listeners
+        document.getElementById('season-p1').addEventListener('change', (e) => this.updateSeasonImage('season-p1-img', e.target.value, 'driver'));
+        document.getElementById('season-p2').addEventListener('change', (e) => this.updateSeasonImage('season-p2-img', e.target.value, 'driver'));
+        document.getElementById('season-p3').addEventListener('change', (e) => this.updateSeasonImage('season-p3-img', e.target.value, 'driver'));
+        document.getElementById('season-c1').addEventListener('change', (e) => this.updateSeasonImage('season-c1-img', e.target.value, 'team'));
+        document.getElementById('season-c2').addEventListener('change', (e) => this.updateSeasonImage('season-c2-img', e.target.value, 'team'));
+        document.getElementById('season-c3').addEventListener('change', (e) => this.updateSeasonImage('season-c3-img', e.target.value, 'team'));
         document.getElementById('btn-save-season').onclick = () => this.saveSeasonBet();
+        
         this.loadExistingSeasonBet();
     }
 
@@ -1018,178 +1046,302 @@ updateCircuitInfo() {
                 img.style.display = 'block';
             }
         } else if (type === 'team') {
-            const teamPath = `./assets/equipos/${value.toLowerCase().replace(/\\s+/g, '-')}.png`;
-            img.src = teamPath;
+            // Intenta cargar la imagen del equipo (convierte el nombre a formato de archivo)
+            const teamFileName = value.toLowerCase().replace(/\s+/g, '-');
+            img.src = `./assets/equipos/${teamFileName}.png`;
             img.style.display = 'block';
-            img.onerror = () => { img.style.display = 'none'; };
+            img.onerror = () => { 
+                img.style.display = 'none';
+                console.log(`Imagen no encontrada para equipo: ${value}`);
+            };
         }
     }
 
-calculateRacePerformance(bet, result) {
-    const realPodium = [result.P1, result.P2, result.P3];
-    const betPodium = [bet.P1, bet.P2, bet.P3];
-    
-    let exactMatches = 0;
-    let podioIncorrecto = 0;
-    let positionDifference = 0;
+    // ==================== CÁLCULO DE RENDIMIENTO Y PUNTOS ====================
 
-    // 1 & 2. Aciertos Exactos y Podio Incorrecto (Lógica Exclusiva)
-    for (let i = 0; i < 3; i++) {
-        if (betPodium[i] === realPodium[i]) {
-            exactMatches++;
-        } else if (realPodium.includes(betPodium[i])) {
-            podioIncorrecto++;
-        }
-    }
-
-    // 3. Diferencia Real con TODOS los puestos (1-22)
-    betPodium.forEach((piloto, index) => {
-        const posicionApostada = index + 1; // 1, 2 o 3
-        let posicionReal = 22; // Por defecto 22 si no se encuentra
+    calculateRacePerformance(bet, result) {
+        const realPodium = [result.P1, result.P2, result.P3];
+        const betPodium = [bet.P1, bet.P2, bet.P3];
         
-        // Buscar en QUÉ PUESTO REAL terminó el piloto (P1 a P22)
-        for (let p = 1; p <= 22; p++) {
-            if (result[`P${p}`] === piloto) {
-                posicionReal = p;
-                break;
+        let exactMatches = 0;
+        let podioIncorrecto = 0;
+        let positionDifference = 0;
+
+        // 1 & 2. Aciertos Exactos y Podio Incorrecto (Lógica Exclusiva)
+        for (let i = 0; i < 3; i++) {
+            if (betPodium[i] === realPodium[i]) {
+                exactMatches++;
+            } else if (realPodium.includes(betPodium[i])) {
+                podioIncorrecto++;
             }
         }
-        
-        // Diferencia absoluta: |posición apostada - posición real|
-        const diferencia = Math.abs(posicionApostada - posicionReal);
-        positionDifference += diferencia;
-        
-        // Log para depurar (míralo en la consola F12)
-        console.log(`📊 ${piloto}: Apostado P${posicionApostada}, Real P${posicionReal}, Diferencia: ${diferencia}`);
-    });
 
-    // 4. Cálculo de Puntos
-    let pExactos = 0;
-    if (exactMatches === 1) pExactos = 5;
-    else if (exactMatches === 2) pExactos = 4;
-    else if (exactMatches === 3) pExactos = 3;
-
-    const pPodio = podioIncorrecto * 2;
-
-    return {
-        exactMatches,
-        podioIncorrecto,
-        positionDifference,
-        puntosExactos: pExactos,
-        puntosPodio: pPodio,
-        puntosTotales: pExactos + pPodio
-    };
-}
-
-// ==================== PESTAÑA HISTORIAL (VOTOS DETALLADOS Y PUNTOS CORREGIDOS) ====================
-
-loadHistoryTab() {
-    const tabContent = document.getElementById('tab-history');
-    if (!tabContent) return;
-
-    const desglose = {
-        Varo: { exactos: 0, podio: 0, diferencia: 0, mundial: 0, total: 0 },
-        Cía: { exactos: 0, podio: 0, diferencia: 0, mundial: 0, total: 0 }
-    };
-
-    let detalleCarrerasHTML = '';
-    const resultados = [...this.firebaseData.results].sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
-
-    resultados.forEach(result => {
-        const carrera = result.Carrera;
-        const betsForRace = this.firebaseData.bets.filter(bet => bet.Carrera === carrera);
-        let infoPlayers = { Varo: null, Cía: null };
-
-        betsForRace.forEach(bet => {
-            const stats = this.calculateRacePerformance(bet, result);
-            const p = bet.Jugador;
-
-            desglose[p].exactos += stats.puntosExactos;
-            desglose[p].podio += stats.puntosPodio;
+        // 3. Diferencia Real con TODOS los puestos (1-22)
+        betPodium.forEach((piloto, index) => {
+            const posicionApostada = index + 1; // 1, 2 o 3
+            let posicionReal = 22; // Por defecto 22 si no se encuentra
             
-            infoPlayers[p] = {
-                voto: [bet.P1, bet.P2, bet.P3].join(' - '),
-                resumen: `🎯 ${stats.exactMatches} exactos (${stats.puntosExactos}pts) | 🥉 ${stats.podioIncorrecto} podio inc. (${stats.puntosPodio}pts) | 📏 Dif: ${stats.positionDifference}`,
-                diff: stats.positionDifference,
-                puntos: stats.puntosTotales
-            };
+            // Buscar en QUÉ PUESTO REAL terminó el piloto (P1 a P22)
+            for (let p = 1; p <= 22; p++) {
+                if (result[`P${p}`] === piloto) {
+                    posicionReal = p;
+                    break;
+                }
+            }
+            
+            // Diferencia absoluta: |posición apostada - posición real|
+            const diferencia = Math.abs(posicionApostada - posicionReal);
+            positionDifference += diferencia;
         });
 
-        // Punto extra por cercanía (Diferencia menor)
-        if (infoPlayers.Varo && infoPlayers.Cía) {
-            if (infoPlayers.Varo.diff < infoPlayers.Cía.diff) { 
-                desglose.Varo.diferencia++; 
-                infoPlayers.Varo.resumen += " ⭐ (+1 Dif)"; 
-            }
-            else if (infoPlayers.Cía.diff < infoPlayers.Varo.diff) { 
-                desglose.Cía.diferencia++; 
-                infoPlayers.Cía.resumen += " ⭐ (+1 Dif)"; 
-            }
-        }
+        // 4. Cálculo de Puntos
+        let pExactos = 0;
+        if (exactMatches === 1) pExactos = 5;
+        else if (exactMatches === 2) pExactos = 4;
+        else if (exactMatches === 3) pExactos = 3;
 
-        const carreraNombre = carrera.split(' (')[0];
+        const pPodio = podioIncorrecto * 2;
+
+        return {
+            exactMatches,
+            podioIncorrecto,
+            positionDifference,
+            puntosExactos: pExactos,
+            puntosPodio: pPodio,
+            puntosTotales: pExactos + pPodio
+        };
+    }
+
+    calculateAllPoints() {
+        // 1. Reiniciar puntos de los jugadores
+        this.firebaseData.points = { Varo: 0, Cía: 0 };
         
-        detalleCarrerasHTML += `
-            <div class="history-race-card" style="background: rgba(255,255,255,0.05); padding: 15px; border-radius: 12px; margin-bottom: 15px; border-left: 4px solid var(--f1-red);">
-                <div style="font-weight: 900; color: var(--f1-red); text-transform: uppercase; margin-bottom: 10px; font-size: 1rem;">${carreraNombre}</div>
+        // 2. CÁLCULO DE PUNTOS POR CARRERAS INDIVIDUALES
+        this.firebaseData.results.forEach(result => {
+            const carrera = result.Carrera;
+            
+            // Buscar apuestas para esta carrera
+            const betsForRace = this.firebaseData.bets.filter(bet => bet.Carrera === carrera);
+            let diffs = {};
+
+            betsForRace.forEach(bet => {
+                const stats = this.calculateRacePerformance(bet, result);
+                this.firebaseData.points[bet.Jugador] += stats.puntosTotales;
+                diffs[bet.Jugador] = stats.positionDifference;
+            });
+
+            // Punto extra por cercanía (Diferencia menor)
+            if (diffs.Varo !== undefined && diffs.Cía !== undefined) {
+                if (diffs.Varo < diffs.Cía) this.firebaseData.points.Varo += 1;
+                else if (diffs.Cía < diffs.Varo) this.firebaseData.points.Cía += 1;
+            }
+        });
+
+        // 3. CÁLCULO DE PUNTOS POR MUNDIAL (SISTEMA EXCLUSIVO)
+        const final = this.firebaseData.finalResults;
+        if (final) {
+            this.firebaseData.seasonBets.forEach(bet => {
+                const player = bet.Jugador;
                 
-                <div style="background: rgba(0,0,0,0.3); padding: 8px; border-radius: 6px; margin-bottom: 12px; font-size: 0.9rem; border: 1px solid rgba(255,255,255,0.1);">
-                    <span style="color: #aaa;">🏁 PODIO REAL:</span> <strong style="color: #fff;">${result.P1} - ${result.P2} - ${result.P3}</strong>
-                </div>
+                // --- MUNDIAL PILOTOS ---
+                const realDrivers = [final.D1, final.D2, final.D3];
+                const betDrivers = [bet.D_P1, bet.D_P2, bet.D_P3];
 
-                <div style="display: grid; gap: 10px;">
-                    <div style="padding-left: 10px; border-left: 3px solid #FFD700; background: rgba(255, 215, 0, 0.03); padding-top: 5px; padding-bottom: 5px;">
-                        <div style="font-size: 0.85rem; color: #FFD700; font-weight: bold; margin-bottom: 2px;">VARO APOSTÓ: <span style="color: #eee; font-weight: normal;">${infoPlayers.Varo ? infoPlayers.Varo.voto : '---'}</span></div>
-                        <div style="font-size: 0.75rem; color: #bbb;">${infoPlayers.Varo ? infoPlayers.Varo.resumen : 'Sin apuesta'}</div>
-                    </div>
+                betDrivers.forEach((driver, index) => {
+                    if (!driver) return;
                     
-                    <div style="padding-left: 10px; border-left: 3px solid #00D4FF; background: rgba(0, 212, 255, 0.03); padding-top: 5px; padding-bottom: 5px;">
-                        <div style="font-size: 0.85rem; color: #00D4FF; font-weight: bold; margin-bottom: 2px;">CÍA APOSTÓ: <span style="color: #eee; font-weight: normal;">${infoPlayers.Cía ? infoPlayers.Cía.voto : '---'}</span></div>
-                        <div style="font-size: 0.75rem; color: #bbb;">${infoPlayers.Cía ? infoPlayers.Cía.resumen : 'Sin apuesta'}</div>
-                    </div>
-                </div>
+                    if (driver === realDrivers[index]) {
+                        // Si acierta posición exacta
+                        if (index === 0) this.firebaseData.points[player] += 15;
+                        else if (index === 1) this.firebaseData.points[player] += 12;
+                        else if (index === 2) this.firebaseData.points[player] += 9;
+                    } 
+                    else if (realDrivers.includes(driver)) {
+                        // Si está en el podio pero en lugar equivocado
+                        this.firebaseData.points[player] += 6;
+                    }
+                });
 
-                <div style="margin-top: 10px; padding-top: 8px; border-top: 1px solid rgba(255,255,255,0.1); font-size: 0.85rem; color: var(--f1-red); font-weight: bold; text-align: right; letter-spacing: 0.5px;">
-                    PUNTOS CARRERA: VARO ${infoPlayers.Varo ? infoPlayers.Varo.puntos : 0} | CÍA ${infoPlayers.Cía ? infoPlayers.Cía.puntos : 0}
+                // --- MUNDIAL CONSTRUCTORES ---
+                const realTeams = [final.C1, final.C2, final.C3];
+                const betTeams = [bet.C_P1, bet.C_P2, bet.C_P3];
+
+                betTeams.forEach((team, index) => {
+                    if (!team) return;
+
+                    if (team === realTeams[index]) {
+                        // Si acierta posición exacta
+                        if (index === 0) this.firebaseData.points[player] += 10;
+                        else if (index === 1) this.firebaseData.points[player] += 8;
+                        else if (index === 2) this.firebaseData.points[player] += 6;
+                    } 
+                    else if (realTeams.includes(team)) {
+                        // Si está en el podio pero en lugar equivocado
+                        this.firebaseData.points[player] += 4;
+                    }
+                });
+            });
+        }
+        
+        console.log("📊 Puntos recalculados correctamente:", this.firebaseData.points);
+    }
+
+    // ==================== PESTAÑA HISTORIAL ====================
+
+    loadHistoryTab() {
+        const tabContent = document.getElementById('tab-history');
+        if (!tabContent) return;
+
+        // Calcular estadísticas de jugadores
+        const playerStats = this.calculateAllPlayerStats();
+
+        // Generar HTML de detalles de carreras
+        const raceDetailsHTML = this.generateRaceDetailsHTML();
+
+        // Renderizar
+        tabContent.innerHTML = `
+            <div class="mobile-card">
+                <p class="sub-text">📊 TABLA DE PUNTOS ACUMULADOS</p>
+                ${this.renderPointsTable(playerStats)}
+                
+                <p class="sub-text mt-30">🏁 DETALLE DE CARRERAS</p>
+                <div class="history-races-container" style="margin-top: 15px;">
+                    ${raceDetailsHTML || '<div class="no-results">Esperando resultados oficiales...</div>'}
                 </div>
+                
+                <button onclick="window.f1App.refreshData()" class="btn btn-secondary w-100 mt-20">
+                    <i class="fas fa-redo"></i> ACTUALIZAR DATOS
+                </button>
             </div>
         `;
-    });
-
-    // Calcular puntos del Mundial (SISTEMA EXCLUSIVO)
-    if (this.firebaseData.finalResults) {
-        const final = this.firebaseData.finalResults;
-        this.firebaseData.seasonBets.forEach(bet => {
-            const player = bet.Jugador;
-            let ptsM = 0;
-            const rD = [final.D1, final.D2, final.D3];
-            const bD = [bet.D_P1, bet.D_P2, bet.D_P3];
-            bD.forEach((d, i) => {
-                if (!d) return;
-                if (d === rD[i]) ptsM += (i===0?15:i===1?12:9);
-                else if (rD.includes(d)) ptsM += 6;
-            });
-            const rC = [final.C1, final.C2, final.C3];
-            const bC = [bet.C_P1, bet.C_P2, bet.C_P3];
-            bC.forEach((c, i) => {
-                if (!c) return;
-                if (c === rC[i]) ptsM += (i===0?10:i===1?8:6);
-                else if (rC.includes(c)) ptsM += 4;
-            });
-            if (player === 'Varo') desglose.Varo.mundial = ptsM;
-            else desglose.Cía.mundial = ptsM;
-        });
     }
 
-    // Calcular totales finales
-    Object.keys(desglose).forEach(p => {
-        desglose[p].total = desglose[p].exactos + desglose[p].podio + desglose[p].diferencia + desglose[p].mundial;
-    });
+    calculateAllPlayerStats() {
+        const desglose = {
+            Varo: { exactos: 0, podio: 0, diferencia: 0, mundial: 0, total: 0 },
+            Cía: { exactos: 0, podio: 0, diferencia: 0, mundial: 0, total: 0 }
+        };
 
-    // Renderizar la tabla de puntos acumulados y el historial detallado
-    tabContent.innerHTML = `
-        <div class="mobile-card">
-            <p class="sub-text">📊 TABLA DE PUNTOS ACUMULADOS</p>
+        // Puntos por carrera
+        this.firebaseData.results.forEach(result => {
+            const carrera = result.Carrera;
+            const betsForRace = this.firebaseData.bets.filter(bet => bet.Carrera === carrera);
+            let diffs = {};
+
+            betsForRace.forEach(bet => {
+                const stats = this.calculateRacePerformance(bet, result);
+                desglose[bet.Jugador].exactos += stats.puntosExactos;
+                desglose[bet.Jugador].podio += stats.puntosPodio;
+                diffs[bet.Jugador] = stats.positionDifference;
+            });
+
+            // Punto extra por cercanía
+            if (diffs.Varo !== undefined && diffs.Cía !== undefined) {
+                if (diffs.Varo < diffs.Cía) desglose.Varo.diferencia += 1;
+                else if (diffs.Cía < diffs.Varo) desglose.Cía.diferencia += 1;
+            }
+        });
+
+        // Puntos del mundial (si existen)
+        if (this.firebaseData.finalResults) {
+            const final = this.firebaseData.finalResults;
+            this.firebaseData.seasonBets.forEach(bet => {
+                const player = bet.Jugador;
+                let ptsM = 0;
+                
+                // Pilotos
+                const rD = [final.D1, final.D2, final.D3];
+                const bD = [bet.D_P1, bet.D_P2, bet.D_P3];
+                bD.forEach((d, i) => {
+                    if (!d) return;
+                    if (d === rD[i]) ptsM += (i===0?15:i===1?12:9);
+                    else if (rD.includes(d)) ptsM += 6;
+                });
+                
+                // Constructores
+                const rC = [final.C1, final.C2, final.C3];
+                const bC = [bet.C_P1, bet.C_P2, bet.C_P3];
+                bC.forEach((c, i) => {
+                    if (!c) return;
+                    if (c === rC[i]) ptsM += (i===0?10:i===1?8:6);
+                    else if (rC.includes(c)) ptsM += 4;
+                });
+                
+                desglose[player].mundial = ptsM;
+            });
+        }
+
+        // Calcular totales
+        Object.keys(desglose).forEach(p => {
+            desglose[p].total = desglose[p].exactos + desglose[p].podio + desglose[p].diferencia + desglose[p].mundial;
+        });
+
+        return desglose;
+    }
+
+    generateRaceDetailsHTML() {
+        let html = '';
+        const resultados = [...this.firebaseData.results].sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
+
+        resultados.forEach(result => {
+            const carrera = result.Carrera;
+            const carreraNombre = carrera.split(' (')[0];
+            const betsForRace = this.firebaseData.bets.filter(bet => bet.Carrera === carrera);
+            
+            let infoPlayers = { Varo: null, Cía: null };
+            let diffs = {};
+
+            betsForRace.forEach(bet => {
+                const stats = this.calculateRacePerformance(bet, result);
+                const player = bet.Jugador;
+                
+                infoPlayers[player] = {
+                    voto: [bet.P1, bet.P2, bet.P3].join(' - '),
+                    resumen: `🎯 ${stats.exactMatches} exactos (${stats.puntosExactos}pts) | 🥉 ${stats.podioIncorrecto} podio inc. (${stats.puntosPodio}pts) | 📏 Dif: ${stats.positionDifference}`,
+                    diff: stats.positionDifference,
+                    puntos: stats.puntosTotales
+                };
+                diffs[player] = stats.positionDifference;
+            });
+
+            // Añadir indicador de punto extra si corresponde
+            if (infoPlayers.Varo && infoPlayers.Cía) {
+                if (diffs.Varo < diffs.Cía) infoPlayers.Varo.resumen += " ⭐ (+1 Dif)";
+                else if (diffs.Cía < diffs.Varo) infoPlayers.Cía.resumen += " ⭐ (+1 Dif)";
+            }
+
+            html += `
+                <div class="history-race-card" style="background: rgba(255,255,255,0.05); padding: 15px; border-radius: 12px; margin-bottom: 15px; border-left: 4px solid var(--f1-red);">
+                    <div style="font-weight: 900; color: var(--f1-red); text-transform: uppercase; margin-bottom: 10px; font-size: 1rem;">${carreraNombre}</div>
+                    
+                    <div style="background: rgba(0,0,0,0.3); padding: 8px; border-radius: 6px; margin-bottom: 12px; font-size: 0.9rem; border: 1px solid rgba(255,255,255,0.1);">
+                        <span style="color: #aaa;">🏁 PODIO REAL:</span> <strong style="color: #fff;">${result.P1} - ${result.P2} - ${result.P3}</strong>
+                    </div>
+
+                    <div style="display: grid; gap: 10px;">
+                        <div style="padding-left: 10px; border-left: 3px solid #FFD700; background: rgba(255, 215, 0, 0.03); padding-top: 5px; padding-bottom: 5px;">
+                            <div style="font-size: 0.85rem; color: #FFD700; font-weight: bold; margin-bottom: 2px;">VARO APOSTÓ: <span style="color: #eee; font-weight: normal;">${infoPlayers.Varo ? infoPlayers.Varo.voto : '---'}</span></div>
+                            <div style="font-size: 0.75rem; color: #bbb;">${infoPlayers.Varo ? infoPlayers.Varo.resumen : 'Sin apuesta'}</div>
+                        </div>
+                        
+                        <div style="padding-left: 10px; border-left: 3px solid #00D4FF; background: rgba(0, 212, 255, 0.03); padding-top: 5px; padding-bottom: 5px;">
+                            <div style="font-size: 0.85rem; color: #00D4FF; font-weight: bold; margin-bottom: 2px;">CÍA APOSTÓ: <span style="color: #eee; font-weight: normal;">${infoPlayers.Cía ? infoPlayers.Cía.voto : '---'}</span></div>
+                            <div style="font-size: 0.75rem; color: #bbb;">${infoPlayers.Cía ? infoPlayers.Cía.resumen : 'Sin apuesta'}</div>
+                        </div>
+                    </div>
+
+                    <div style="margin-top: 10px; padding-top: 8px; border-top: 1px solid rgba(255,255,255,0.1); font-size: 0.85rem; color: var(--f1-red); font-weight: bold; text-align: right; letter-spacing: 0.5px;">
+                        PUNTOS CARRERA: VARO ${infoPlayers.Varo ? infoPlayers.Varo.puntos : 0} | CÍA ${infoPlayers.Cía ? infoPlayers.Cía.puntos : 0}
+                    </div>
+                </div>
+            `;
+        });
+        
+        return html;
+    }
+
+    renderPointsTable(desglose) {
+        return `
             <table class="bets-table" style="width: 100%; border-collapse: collapse; margin: 15px 0; background: rgba(255,255,255,0.03); border-radius: 10px; overflow: hidden;">
                 <thead>
                     <tr>
@@ -1228,18 +1380,9 @@ loadHistoryTab() {
                     </tr>
                 </tbody>
             </table>
-            
-            <p class="sub-text mt-30">🏁 DETALLE DE CARRERAS</p>
-            <div class="history-races-container" style="margin-top: 15px;">
-                ${detalleCarrerasHTML || '<div class="no-results">Esperando resultados oficiales...</div>'}
-            </div>
-            
-            <button onclick="window.f1App.refreshData()" class="btn btn-secondary w-100 mt-20">
-                <i class="fas fa-redo"></i> ACTUALIZAR DATOS
-            </button>
-        </div>
-    `;
-}
+        `;
+    }
+
     // ==================== PESTAÑA PUNTOS ====================
     
     loadPointsTab() {
@@ -1293,79 +1436,6 @@ loadHistoryTab() {
         `;
     }
 
-   calculateAllPoints() {
-    // 1. Reiniciar puntos de los jugadores
-    this.firebaseData.points = { Varo: 0, Cía: 0 };
-    
-    // 2. CÁLCULO DE PUNTOS POR CARRERAS INDIVIDUALES
-    this.firebaseData.results.forEach(result => {
-        const carrera = result.Carrera;
-        
-        // Buscar apuestas para esta carrera
-        const betsForRace = this.firebaseData.bets.filter(bet => bet.Carrera === carrera);
-        let diffs = {};
-
-        betsForRace.forEach(bet => {
-            const stats = this.calculateRacePerformance(bet, result);
-            this.firebaseData.points[bet.Jugador] += stats.puntosTotales;
-            diffs[bet.Jugador] = stats.positionDifference;
-        });
-
-        // Punto extra por cercanía (Diferencia menor)
-        if (diffs.Varo !== undefined && diffs.Cía !== undefined) {
-            if (diffs.Varo < diffs.Cía) this.firebaseData.points.Varo += 1;
-            else if (diffs.Cía < diffs.Varo) this.firebaseData.points.Cía += 1;
-        }
-    });
-
-    // 3. CÁLCULO DE PUNTOS POR MUNDIAL (SISTEMA EXCLUSIVO)
-    const final = this.firebaseData.finalResults;
-    if (final) {
-        this.firebaseData.seasonBets.forEach(bet => {
-            const player = bet.Jugador;
-            
-            // --- MUNDIAL PILOTOS ---
-            const realDrivers = [final.D1, final.D2, final.D3];
-            const betDrivers = [bet.D_P1, bet.D_P2, bet.D_P3];
-
-            betDrivers.forEach((driver, index) => {
-                if (!driver) return;
-                
-                if (driver === realDrivers[index]) {
-                    // Si acierta posición exacta
-                    if (index === 0) this.firebaseData.points[player] += 15;
-                    else if (index === 1) this.firebaseData.points[player] += 12;
-                    else if (index === 2) this.firebaseData.points[player] += 9;
-                } 
-                else if (realDrivers.includes(driver)) {
-                    // Si está en el podio pero en lugar equivocado
-                    this.firebaseData.points[player] += 6;
-                }
-            });
-
-            // --- MUNDIAL CONSTRUCTORES ---
-            const realTeams = [final.C1, final.C2, final.C3];
-            const betTeams = [bet.C_P1, bet.C_P2, bet.C_P3];
-
-            betTeams.forEach((team, index) => {
-                if (!team) return;
-
-                if (team === realTeams[index]) {
-                    // Si acierta posición exacta
-                    if (index === 0) this.firebaseData.points[player] += 10;
-                    else if (index === 1) this.firebaseData.points[player] += 8;
-                    else if (index === 2) this.firebaseData.points[player] += 6;
-                } 
-                else if (realTeams.includes(team)) {
-                    // Si está en el podio pero en lugar equivocado
-                    this.firebaseData.points[player] += 4;
-                }
-            });
-        });
-    }
-    
-    console.log("📊 Puntos recalculados correctamente:", this.firebaseData.points);
-}
     // ==================== ADMIN ====================
     
     updateAdminButton() {
@@ -1419,109 +1489,161 @@ loadHistoryTab() {
         }
     }
 
-   loadAdminPanel() {
-    const tabContent = document.getElementById('tab-admin');
-    if (!tabContent) return;
-    
-    tabContent.innerHTML = `
-        <div class="mobile-card">
-            <p class="sub-text">🔧 PANEL ADMINISTRADOR</p>
-            
-            <div class="admin-warning">
-                <i class="fas fa-exclamation-triangle"></i>
-                <h4>PUBLICAR RESULTADOS OFICIALES</h4>
-                <p>Completa TODOS los puestos (1-22) y publica resultados.</p>
-            </div>
-            
-            <div class="admin-section mt-20">
-                <h4><i class="fas fa-flag-checkered"></i> RESULTADOS DE CARRERA</h4>
+    loadAdminPanel() {
+        const tabContent = document.getElementById('tab-admin');
+        if (!tabContent) return;
+        
+        tabContent.innerHTML = `
+            <div class="mobile-card">
+                <p class="sub-text">🔧 PANEL ADMINISTRADOR</p>
                 
-                <div class="form-group">
-                    <label class="form-label">SELECCIONA CARRERA</label>
-                    <select id="admin-gp-select" class="form-select">
-                        ${this.circuitsList.map((circuit, index) => 
-                            `<option value="${index}">${circuit}</option>`
-                        ).join('')}
-                    </select>
+                <div class="admin-warning">
+                    <i class="fas fa-exclamation-triangle"></i>
+                    <h4>PUBLICAR RESULTADOS OFICIALES</h4>
+                    <p>Completa TODOS los puestos (1-22) y publica resultados.</p>
                 </div>
                 
-                <div id="results-container" class="results-grid mt-20">
-                    ${Array.from({length: 22}, (_, i) => `
-                        <div class="result-row">
-                            <div class="position-label">P${i+1}</div>
-                            <select class="result-select" data-position="${i+1}">
-                                <option value="">Selecciona piloto</option>
-                                ${this.driversList.map(driver => 
-                                    `<option value="${driver}">${driver}</option>`
-                                ).join('')}
-                            </select>
-                        </div>
-                    `).join('')}
-                </div>
-                
-                <button id="btn-publish-results" class="btn btn-primary w-100 mt-20">
-                    <i class="fas fa-paper-plane"></i> PUBLICAR RESULTADOS
-                </button>
-            </div>
-
-            <div class="admin-section mt-30" style="border: 2px solid gold; padding: 15px; border-radius: 10px; background: rgba(255, 215, 0, 0.05);">
-                <h4><i class="fas fa-trophy"></i> RESULTADOS FINALES DEL MUNDIAL</h4>
-                <p class="sub-text" style="color: gold;">Introduce el Top 3 final para cerrar la temporada</p>
-                
-                <div class="results-grid mt-10">
-                    <label class="form-label">PILOTOS TOP 3:</label>
-                    <select id="final-d1" class="form-select mt-5">${this.driversList.map(d => `<option value="${d}">${d}</option>`).join('')}</select>
-                    <select id="final-d2" class="form-select mt-5">${this.driversList.map(d => `<option value="${d}">${d}</option>`).join('')}</select>
-                    <select id="final-d3" class="form-select mt-5">${this.driversList.map(d => `<option value="${d}">${d}</option>`).join('')}</select>
+                <div class="admin-section mt-20">
+                    <h4><i class="fas fa-flag-checkered"></i> RESULTADOS DE CARRERA</h4>
                     
-                    <label class="form-label mt-15">CONSTRUCTORES TOP 3:</label>
-                    <select id="final-c1" class="form-select mt-5">${this.data.constructors.map(c => `<option value="${c}">${c}</option>`).join('')}</select>
-                    <select id="final-c2" class="form-select mt-5">${this.data.constructors.map(c => `<option value="${c}">${c}</option>`).join('')}</select>
-                    <select id="final-c3" class="form-select mt-5">${this.data.constructors.map(c => `<option value="${c}">${c}</option>`).join('')}</select>
+                    <div class="form-group">
+                        <label class="form-label">SELECCIONA CARRERA</label>
+                        <select id="admin-gp-select" class="form-select">
+                            ${this.circuitsList.map((circuit, index) => 
+                                `<option value="${index}">${circuit}</option>`
+                            ).join('')}
+                        </select>
+                    </div>
+                    
+                    <div id="results-container" class="results-grid mt-20">
+                        ${Array.from({length: 22}, (_, i) => `
+                            <div class="result-row">
+                                <div class="position-label">P${i+1}</div>
+                                <select class="result-select" data-position="${i+1}">
+                                    <option value="">Selecciona piloto</option>
+                                    ${this.driversList.map(driver => 
+                                        `<option value="${driver}">${driver}</option>`
+                                    ).join('')}
+                                </select>
+                            </div>
+                        `).join('')}
+                    </div>
+                    
+                    <button id="btn-publish-results" class="btn btn-primary w-100 mt-20">
+                        <i class="fas fa-paper-plane"></i> PUBLICAR RESULTADOS
+                    </button>
+                </div>
+
+                <div class="admin-section mt-30" style="border: 2px solid gold; padding: 15px; border-radius: 10px; background: rgba(255, 215, 0, 0.05);">
+                    <h4><i class="fas fa-trophy"></i> RESULTADOS FINALES DEL MUNDIAL</h4>
+                    <p class="sub-text" style="color: gold;">Introduce el Top 3 final para cerrar la temporada</p>
+                    
+                    <div class="results-grid mt-10">
+                        <label class="form-label">PILOTOS TOP 3:</label>
+                        <select id="final-d1" class="form-select mt-5">
+                            <option value="">Selecciona piloto</option>
+                            ${this.driversList.map(d => `<option value="${d}">${d}</option>`).join('')}
+                        </select>
+                        <select id="final-d2" class="form-select mt-5">
+                            <option value="">Selecciona piloto</option>
+                            ${this.driversList.map(d => `<option value="${d}">${d}</option>`).join('')}
+                        </select>
+                        <select id="final-d3" class="form-select mt-5">
+                            <option value="">Selecciona piloto</option>
+                            ${this.driversList.map(d => `<option value="${d}">${d}</option>`).join('')}
+                        </select>
+                        
+                        <label class="form-label mt-15">CONSTRUCTORES TOP 3:</label>
+                        <select id="final-c1" class="form-select mt-5">
+                            <option value="">Selecciona equipo</option>
+                            ${this.data.constructors.map(c => `<option value="${c}">${c}</option>`).join('')}
+                        </select>
+                        <select id="final-c2" class="form-select mt-5">
+                            <option value="">Selecciona equipo</option>
+                            ${this.data.constructors.map(c => `<option value="${c}">${c}</option>`).join('')}
+                        </select>
+                        <select id="final-c3" class="form-select mt-5">
+                            <option value="">Selecciona equipo</option>
+                            ${this.data.constructors.map(c => `<option value="${c}">${c}</option>`).join('')}
+                        </select>
+                    </div>
+                    
+                    <button id="btn-save-final" class="btn btn-primary w-100 mt-20" style="background: gold; color: black; font-weight: bold; border: none;">
+                        <i class="fas fa-check-double"></i> GUARDAR RESULTADOS FINALES
+                    </button>
                 </div>
                 
-                <button onclick="window.f1App.saveFinalResults()" class="btn btn-primary w-100 mt-20" style="background: gold; color: black; font-weight: bold; border: none;">
-                    <i class="fas fa-check-double"></i> GUARDAR RESULTADOS FINALES
-                </button>
-            </div>
-            
-            <div class="admin-section mt-30">
-                <h4><i class="fas fa-chart-line"></i> ESTADÍSTICAS</h4>
-                <div class="stats-grid">
-                    <div class="stat-card">
-                        <div class="stat-value">${this.firebaseData.bets.length}</div>
-                        <div class="stat-label">Apuestas totales</div>
+                <div class="admin-section mt-30">
+                    <h4><i class="fas fa-chart-line"></i> ESTADÍSTICAS</h4>
+                    <div class="stats-grid">
+                        <div class="stat-card">
+                            <div class="stat-value">${this.firebaseData.bets.length}</div>
+                            <div class="stat-label">Apuestas totales</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-value">${this.firebaseData.results.length}</div>
+                            <div class="stat-label">Carreras con resultados</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-value">2</div>
+                            <div class="stat-label">Jugadores activos</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-value">${this.firebaseData.points.Varo + this.firebaseData.points.Cía}</div>
+                            <div class="stat-label">Puntos totales</div>
+                        </div>
                     </div>
-                    <div class="stat-card">
-                        <div class="stat-value">${this.firebaseData.results.length}</div>
-                        <div class="stat-label">Carreras con resultados</div>
-                    </div>
-                    <div class="stat-card">
-                        <div class="stat-value">2</div>
-                        <div class="stat-label">Jugadores activos</div>
-                    </div>
-                    <div class="stat-card">
-                        <div class="stat-value">${this.firebaseData.points.Varo + this.firebaseData.points.Cía}</div>
-                        <div class="stat-label">Puntos totales</div>
-                    </div>
+                    
+                    <button id="btn-refresh-admin" class="btn btn-secondary w-100 mt-20">
+                        <i class="fas fa-redo"></i> ACTUALIZAR DATOS
+                    </button>
                 </div>
-                
-                <button id="btn-refresh-admin" class="btn btn-secondary w-100 mt-20">
-                    <i class="fas fa-redo"></i> ACTUALIZAR DATOS
-                </button>
             </div>
-        </div>
-    `;
-    
-    // Configurar listeners de botones
-    const publishBtn = document.getElementById('btn-publish-results');
-    if (publishBtn) publishBtn.onclick = () => this.publishFullResults();
-    
-    const refreshBtn = document.getElementById('btn-refresh-admin');
-    if (refreshBtn) refreshBtn.onclick = () => this.refreshData();
-    
-    this.loadExistingResults();
-}
+        `;
+        
+        // Configurar listeners de botones
+        const publishBtn = document.getElementById('btn-publish-results');
+        if (publishBtn) publishBtn.onclick = () => this.publishFullResults();
+        
+        const saveFinalBtn = document.getElementById('btn-save-final');
+        if (saveFinalBtn) saveFinalBtn.onclick = () => this.saveFinalResults();
+        
+        const refreshBtn = document.getElementById('btn-refresh-admin');
+        if (refreshBtn) refreshBtn.onclick = () => this.refreshData();
+        
+        // Cargar resultados existentes si los hay
+        this.loadExistingResults();
+    }
+
+    loadExistingResults() {
+        const gpSelect = document.getElementById('admin-gp-select');
+        if (!gpSelect) return;
+        
+        const gpIndex = parseInt(gpSelect.value);
+        const circuit = this.circuitsList[gpIndex];
+        
+        const existingResult = this.firebaseData.results.find(r => r.Carrera === circuit);
+        
+        if (existingResult) {
+            for (let i = 1; i <= 22; i++) {
+                const select = document.querySelector(`[data-position="${i}"]`);
+                if (select && existingResult[`P${i}`]) {
+                    select.value = existingResult[`P${i}`];
+                }
+            }
+        }
+        
+        // Cargar resultados finales si existen
+        if (this.firebaseData.finalResults) {
+            const final = this.firebaseData.finalResults;
+            document.getElementById('final-d1').value = final.D1 || '';
+            document.getElementById('final-d2').value = final.D2 || '';
+            document.getElementById('final-d3').value = final.D3 || '';
+            document.getElementById('final-c1').value = final.C1 || '';
+            document.getElementById('final-c2').value = final.C2 || '';
+            document.getElementById('final-c3').value = final.C3 || '';
+        }
+    }
 
     // ==================== REFRESH Y NOTIFICACIONES ====================
     
@@ -1539,6 +1661,7 @@ loadHistoryTab() {
         // Actualizar todas las pestañas visibles
         this.loadLastUserBet();
         this.loadUserBetForCurrentGP();
+        this.updateCircuitInfo();
         
         if (this.state.currentTab === 'points') this.loadPointsTab();
         if (this.state.currentTab === 'season') this.loadSeasonTab();
@@ -1658,7 +1781,6 @@ window.logoutAdmin = function() {
 window.closeAdminModal = function() {
     document.getElementById('admin-overlay').style.display = 'none';
 };
-
 
 // ==================== INICIALIZACIÓN ====================
 
