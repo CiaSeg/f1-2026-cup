@@ -561,6 +561,28 @@ class F1CupApp {
             display.textContent = user.toUpperCase();
         }
 
+        // --- LÓGICA PARA BUSCAR EL SIGUIENTE GP NO VOTADO ---
+        // Buscamos el índice del primer GP que:
+        // 1. No sea un TEST
+        // 2. El usuario no tenga apuesta guardada
+        const nextGPIndex = this.circuitsList.findIndex(circuitName => {
+            const isTest = circuitName.includes('TEST');
+            if (isTest) return false;
+
+            const alreadyBet = this.firebaseData.bets.some(bet => 
+                bet.Carrera === circuitName && bet.Jugador === user
+            );
+            
+            return !alreadyBet;
+        });
+
+        // Si encontramos uno, lo seleccionamos. Si no, dejamos el 0 o el último.
+        if (nextGPIndex !== -1) {
+            this.state.selectedGP = nextGPIndex;
+            console.log(`🎯 Saltando automáticamente al GP: ${this.circuitsList[nextGPIndex]}`);
+        }
+        // ---------------------------------------------------
+
         this.state.currentPage = 'main';
         this.updateUI();
         
