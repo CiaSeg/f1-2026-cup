@@ -80,7 +80,7 @@
                     <span>PUNTOS</span>
                 </button>
                 <button class="tab-btn" data-tab="history">
-                    <i class="fas fa-hashtag"></i>
+                    <i class="fas fa-history"></i>
                     <span>HISTORIAL</span>
                 </button>
                 <button class="tab-btn" data-tab="admin" style="display:none">
@@ -100,15 +100,15 @@
                         <div class="last-bet-content">
                             <div class="podium-item">
                                 <div class="driver-image-container">
-                                    <img id="last-bet-p2-img" src="" class="driver-img" alt="2º">
-                                </div>
-                                <span class="sub-text">2º</span>
-                            </div>
-                            <div class="podium-item">
-                                <div class="driver-image-container">
                                     <img id="last-bet-p1-img" src="" class="driver-img" alt="1º">
                                 </div>
                                 <span class="sub-text">1º</span>
+                            </div>
+                            <div class="podium-item">
+                                <div class="driver-image-container">
+                                    <img id="last-bet-p2-img" src="" class="driver-img" alt="2º">
+                                </div>
+                                <span class="sub-text">2º</span>
                             </div>
                             <div class="podium-item">
                                 <div class="driver-image-container">
@@ -119,9 +119,9 @@
                         </div>
                     </div>
 
-                    <!-- Información del próximo GP -->
+                    <!-- Información del GP -->
                     <div class="mobile-card">
-                        <p class="sub-text">📅 PRÓXIMO GP</p>
+                        <p class="sub-text">📅 GP ACTUAL</p>
                         <select id="gp-select" class="gp-select"></select>
                         <div class="circuit-info">
                             <div class="circuit-header">
@@ -231,7 +231,7 @@
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-database-compat.js"></script>
 
     <script>
-        // 2. Configuración de tu proyecto
+        // Configuración de Firebase
         const firebaseConfig = {
             apiKey: "AIzaSyAlT43zrdlGrwh11pk08vdzcTk-MpxYlZU",
             authDomain: "f1couple2026.firebaseapp.com",
@@ -239,19 +239,59 @@
             projectId: "f1couple2026",
             storageBucket: "f1couple2026.firebasestorage.app",
             messagingSenderId: "14790735712",
-            appId: "1:14790735712:web:d3d6986d703d25135e5005",
-            measurementId: "G-CVC3HRB11S"
+            appId: "1:14790735712:web:d3d6986d703d25135e5005"
         };
 
-        // 3. Inicialización para que sea compatible con tu app.js
+        // Inicializar Firebase
         firebase.initializeApp(firebaseConfig);
-        
-        // Definimos 'db' globalmente para que app.js pueda usarla
         window.db = firebase.database();
-        
         console.log("✅ Firebase conectado correctamente");
     </script>
 
+    <!-- Botón flotante para admin (SOLO UNO) -->
+    <button id="global-admin-btn" class="global-admin-btn">
+        <i class="fas fa-crown"></i>
+        <span>ADMIN</span>
+    </button>
+
+    <!-- Modal de Admin (SOLO UNO) -->
+    <div id="admin-overlay" class="admin-overlay" style="display: none;">
+        <div class="admin-modal">
+            <div class="admin-modal-header">
+                <h3><i class="fas fa-lock"></i> ACCESO ADMINISTRADOR</h3>
+                <button onclick="window.closeAdminModal()" class="close-btn">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="admin-modal-body">
+                <div class="admin-login">
+                    <div class="form-group">
+                        <label class="form-label">CONTRASEÑA ADMIN</label>
+                        <input type="password" id="admin-password" class="form-input" 
+                               placeholder="Ingresa la contraseña">
+                    </div>
+                    <button onclick="window.loginAdmin()" class="btn btn-primary w-100 mt-20">
+                        <i class="fas fa-sign-in-alt"></i> INGRESAR COMO ADMIN
+                    </button>
+                    <p class="admin-hint mt-10">
+                        <i class="fas fa-info-circle"></i> La contraseña es: <strong>F12026</strong>
+                    </p>
+                </div>
+                
+                <div class="admin-status" style="display: none;">
+                    <div class="status-message success">
+                        <i class="fas fa-check-circle"></i>
+                        <span>Modo administrador activo</span>
+                    </div>
+                    <button onclick="window.logoutAdmin()" class="btn btn-secondary w-100 mt-20">
+                        <i class="fas fa-sign-out-alt"></i> SALIR DEL MODO ADMIN
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Cargar app.js DESPUÉS de definir las funciones globales -->
     <script src="app.js"></script>
 
     <!-- Service Worker para PWA -->
@@ -266,126 +306,5 @@
         });
     }
     </script>
-    
-    <!-- Añade esta sección ANTES del </body> -->
-<div id="admin-overlay" class="admin-overlay" style="display: none;">
-    <div class="admin-modal">
-        <div class="admin-modal-header">
-            <h3><i class="fas fa-lock"></i> ACCESO ADMINISTRADOR</h3>
-            <button onclick="closeAdminModal()" class="close-btn">
-                <i class="fas fa-times"></i>
-            </button>
-        </div>
-        <div class="admin-modal-body">
-            <div class="admin-login">
-                <div class="form-group">
-                    <label class="form-label">CONTRASEÑA ADMIN</label>
-                    <input type="password" id="admin-password" class="form-input" 
-                           placeholder="Ingresa la contraseña">
-                </div>
-                <button onclick="loginAdmin()" class="btn btn-primary w-100 mt-20">
-                    <i class="fas fa-sign-in-alt"></i> INGRESAR COMO ADMIN
-                </button>
-                <p class="admin-hint mt-10">
-                    <i class="fas fa-info-circle"></i> La contraseña es: <strong>F12026</strong>
-                </p>
-            </div>
-            
-            <div class="admin-status" style="display: none;">
-                <div class="status-message success">
-                    <i class="fas fa-check-circle"></i>
-                    <span>Modo administrador activo</span>
-                </div>
-                <button onclick="logoutAdmin()" class="btn btn-secondary w-100 mt-20">
-                    <i class="fas fa-sign-out-alt"></i> SALIR DEL MODO ADMIN
-                </button>
-            </div>
-        </div>
-    </div>
-</div>
-
-<!-- Botón flotante para abrir admin (visible para todos) -->
-<button id="global-admin-btn" class="global-admin-btn">
-    <i class="fas fa-crown"></i>
-    <span>ADMIN</span>
-</button>
-
-<script>
-    // Contraseña de admin (puedes cambiarla)
-    const ADMIN_PASSWORD = "F12026";
-    
-    // Verificar si ya está en modo admin
-    function checkAdminStatus() {
-        const isAdmin = localStorage.getItem('f1_admin') === 'true';
-        const adminTab = document.querySelector('[data-tab="admin"]');
-        const adminBtn = document.getElementById('global-admin-btn');
-        
-        if (isAdmin) {
-            // Mostrar pestaña admin
-            if (adminTab) adminTab.style.display = 'flex';
-            if (adminBtn) adminBtn.classList.add('active');
-            
-            // Actualizar estado en el modal
-            document.querySelector('.admin-login').style.display = 'none';
-            document.querySelector('.admin-status').style.display = 'block';
-        } else {
-            // Ocultar pestaña admin
-            if (adminTab) adminTab.style.display = 'none';
-            if (adminBtn) adminBtn.classList.remove('active');
-            
-            // Mostrar login en el modal
-            document.querySelector('.admin-login').style.display = 'block';
-            document.querySelector('.admin-status').style.display = 'none';
-        }
-    }
-    
-    // Abrir modal de admin
-    document.getElementById('global-admin-btn').addEventListener('click', function() {
-        document.getElementById('admin-overlay').style.display = 'flex';
-        checkAdminStatus();
-    });
-    
-    // Cerrar modal
-    function closeAdminModal() {
-        document.getElementById('admin-overlay').style.display = 'none';
-    }
-    
-    // Login admin
-    function loginAdmin() {
-        const password = document.getElementById('admin-password').value;
-        
-        if (password === ADMIN_PASSWORD) {
-            localStorage.setItem('f1_admin', 'true');
-            showNotification('✅ Modo administrador activado', 'success');
-            checkAdminStatus();
-            closeAdminModal();
-            
-            // Recargar para ver cambios
-            setTimeout(() => location.reload(), 1000);
-        } else {
-            showNotification('❌ Contraseña incorrecta', 'error');
-        }
-    }
-    
-    // Logout admin
-    function logoutAdmin() {
-        localStorage.removeItem('f1_admin');
-        showNotification('👤 Modo administrador desactivado', 'info');
-        checkAdminStatus();
-        closeAdminModal();
-        
-        // Recargar para ver cambios
-        setTimeout(() => location.reload(), 1000);
-    }
-    
-    // Función auxiliar para notificaciones
-    function showNotification(message, type) {
-        // Tu código de notificaciones existente
-        console.log(`${type}: ${message}`);
-    }
-    
-    // Verificar estado al cargar
-    window.addEventListener('load', checkAdminStatus);
-</script>
 </body>
 </html>
