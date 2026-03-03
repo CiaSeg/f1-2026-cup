@@ -228,6 +228,7 @@ class F1CupApp {
         
         this.init();
     }
+    
 
     async init() {
         console.log('🚀 Iniciando app...');
@@ -504,7 +505,22 @@ class F1CupApp {
         this.showNotification('Error al guardar', 'error');
     }
 }
+// Busca el siguiente GP que NO sea TEST y que el usuario NO haya votado
+findNextUnvotedGP(user) {
+    const nextGPIndex = this.circuitsList.findIndex(circuitName => {
+        // 1. Ignorar tests
+        if (circuitName.includes('TEST')) return false;
 
+        // 2. Verificar si ya votó
+        const alreadyBet = this.firebaseData.bets.some(bet => 
+            bet.Carrera === circuitName && bet.Jugador === user
+        );
+        
+        return !alreadyBet; // true = no ha votado
+    });
+
+    return nextGPIndex; // Devuelve -1 si no encuentra
+}
     // ==================== MÉTODOS BÁSICOS DE LA APP ====================
     
     setupEventListeners() {
@@ -549,7 +565,7 @@ class F1CupApp {
             btnAdmin.onclick = () => this.toggleAdminMode();
         }
     }
-
+    
     selectUser(user) {
         console.log(`👤 Seleccionando usuario: ${user}`);
         
@@ -561,27 +577,15 @@ class F1CupApp {
             display.textContent = user.toUpperCase();
         }
 
-        // --- LÓGICA PARA BUSCAR EL SIGUIENTE GP NO VOTADO ---
-        // Buscamos el índice del primer GP que:
-        // 1. No sea un TEST
-        // 2. El usuario no tenga apuesta guardada
-        const nextGPIndex = this.circuitsList.findIndex(circuitName => {
-            const isTest = circuitName.includes('TEST');
-            if (isTest) return false;
+        // --- REEMPLAZA TODO ESTO (desde "LÓGICA PARA BUSCAR" hasta "-------") ---
+        const nextGPIndex = this.findNextUnvotedGP(user);
 
-            const alreadyBet = this.firebaseData.bets.some(bet => 
-                bet.Carrera === circuitName && bet.Jugador === user
-            );
-            
-            return !alreadyBet;
-        });
-
-        // Si encontramos uno, lo seleccionamos. Si no, dejamos el 0 o el último.
+        // Si encontramos uno, lo seleccionamos
         if (nextGPIndex !== -1) {
             this.state.selectedGP = nextGPIndex;
             console.log(`🎯 Saltando automáticamente al GP: ${this.circuitsList[nextGPIndex]}`);
         }
-        // ---------------------------------------------------
+        // ----------------------------------------------------------------------
 
         this.state.currentPage = 'main';
         this.updateUI();
@@ -614,6 +618,18 @@ class F1CupApp {
 
     loadMainApp() {
         this.loadGPSelector();
+        
+        // --- AÑADE ESTAS LÍNEAS ---
+        const nextGPIndex = this.findNextUnvotedGP(this.state.currentUser);
+        if (nextGPIndex !== -1) {
+            this.state.selectedGP = nextGPIndex;
+            
+            // Actualizar el selector visual
+            const gpSelect = document.getElementById('gp-select');
+            if (gpSelect) gpSelect.value = nextGPIndex;
+        }
+        // -------------------------
+        
         this.updateCircuitInfo();
         this.loadLastUserBet();
         this.loadDriverSelectors();
@@ -621,6 +637,7 @@ class F1CupApp {
         this.loadTabContent(this.state.currentTab);
         
         this.updateAdminButton();
+}
     }
 
     // ==================== SELECTORES Y FORMULARIOS ====================
@@ -988,6 +1005,53 @@ updateCircuitInfo() {
         }
     }
 
+calculateRacePerformance(bet, result) {
+    const realPodium = [result.P1, result.P2, result.P3];
+    const betPodium = [bet.P1, bet.P2, bet.P3];
+    
+    let exactMatches = 0;
+    let podioIncorrecto = 0;
+    let positionDifference = 0;
+
+    // 1 & 2. Aciertos Exactos y Podio Incorrecto (Lógica Exclusiva)
+    for (let i = 0; i < 3; i++) {
+        if (betPodium[i] === realPodium[i]) {
+            exactMatches++;
+        } else if (realPodium.includes(betPodium[i])) {
+            podioIncorrecto++;
+        }
+    }
+
+    // 3. Diferencia Real (1-22)
+    betPodium.forEach((piloto, index) => {
+        const posicionApostada = index + 1;
+        let posicionReal = 22;
+        for (let p = 1; p <= 22; p++) {
+            if (result[`P${p}`] === piloto) {
+                posicionReal = p;
+                break;
+            }
+        }
+        positionDifference += Math.abs(posicionApostada - posicionReal);
+    });
+
+    // 4. Cálculo de Puntos
+    let pExactos = 0;
+    if (exactMatches === 1) pExactos = 5;
+    else if (exactMatches === 2) pExactos = 4;
+    else if (exactMatches === 3) pExactos = 3;
+
+    const pPodio = podioIncorrecto * 2;
+
+    return {
+        exactMatches,
+        podioIncorrecto,
+        positionDifference,
+        puntosExactos: pExactos,
+        puntosPodio: pPodio,
+        puntosTotales: pExactos + pPodio
+    };
+}
 // ==================== PESTAÑA HISTORIAL (VOTOS DETALLADOS Y PUNTOS CORREGIDOS) ====================
 
 loadHistoryTab() {
@@ -1000,85 +1064,37 @@ loadHistoryTab() {
     };
 
     let detalleCarrerasHTML = '';
-
-    // Procesamos resultados de más reciente a más antiguo
-    const resultados = [...this.firebaseData.results].sort((a, b) => {
-        return (b.timestamp || 0) - (a.timestamp || 0);
-    });
+    const resultados = [...this.firebaseData.results].sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
 
     resultados.forEach(result => {
         const carrera = result.Carrera;
-        const realPodium = [result.P1, result.P2, result.P3];
         const betsForRace = this.firebaseData.bets.filter(bet => bet.Carrera === carrera);
-
-        let diffVaro = null, diffCia = null;
-        let resumenVaro = "Sin apuesta", resumenCia = "Sin apuesta";
-        let votoVaro = "---", votoCia = "---";
-        let puntosVaro = 0, puntosCia = 0;
+        let infoPlayers = { Varo: null, Cía: null };
 
         betsForRace.forEach(bet => {
-            const player = bet.Jugador;
-            const betPodium = [bet.P1, bet.P2, bet.P3];
-            const podioTexto = betPodium.join(' - ');
-            
-            // 1. Cálculo de Aciertos Exactos
-            let exactMatches = 0;
-            for (let i = 0; i < 3; i++) {
-                if (betPodium[i] === realPodium[i]) exactMatches++;
-            }
-            
-            // 2. Cálculo de Pilotos en Podio PERO en lugar incorrecto (Exclusivo)
-            let podioIncorrecto = 0;
-            betPodium.forEach((piloto, index) => {
-                if (realPodium.includes(piloto) && piloto !== realPodium[index]) {
-                    podioIncorrecto++;
-                }
-            });
-            
-            // 3. Cálculo de Diferencia (Cercanía)
-            let positionDifference = 0;
-            betPodium.forEach((piloto, index) => {
-                const realIndex = realPodium.indexOf(piloto);
-                positionDifference += (realIndex !== -1) ? Math.abs(index - realIndex) : 3;
-            });
+            const stats = this.calculateRacePerformance(bet, result);
+            const p = bet.Jugador;
 
-            // 4. Calcular puntos según reglas
-            let pExactos = 0;
-            switch(exactMatches) {
-                case 1: pExactos = 5; break;
-                case 2: pExactos = 4; break;
-                case 3: pExactos = 3; break;
-            }
-            const pPodio = podioIncorrecto * 2;
-            const pTotal = pExactos + pPodio;
-
-            if (player === 'Varo') {
-                votoVaro = podioTexto;
-                diffVaro = positionDifference;
-                puntosVaro = pTotal;
-                desglose.Varo.exactos += pExactos;
-                desglose.Varo.podio += pPodio;
-                resumenVaro = `🎯 ${exactMatches} exactos (${pExactos}pts) | 🥉 ${podioIncorrecto} podio inc. (${pPodio}pts) | 📏 Dif: ${positionDifference}`;
-            } else {
-                votoCia = podioTexto;
-                diffCia = positionDifference;
-                puntosCia = pTotal;
-                desglose.Cía.exactos += pExactos;
-                desglose.Cía.podio += pPodio;
-                resumenCia = `🎯 ${exactMatches} exactos (${pExactos}pts) | 🥉 ${podioIncorrecto} podio inc. (${pPodio}pts) | 📏 Dif: ${positionDifference}`;
-            }
+            desglose[p].exactos += stats.puntosExactos;
+            desglose[p].podio += stats.puntosPodio;
+            
+            infoPlayers[p] = {
+                voto: [bet.P1, bet.P2, bet.P3].join(' - '),
+                resumen: `🎯 ${stats.exactMatches} exactos (${stats.puntosExactos}pts) | 🥉 ${stats.podioIncorrecto} podio inc. (${stats.puntosPodio}pts) | 📏 Dif: ${stats.positionDifference}`,
+                diff: stats.positionDifference,
+                puntos: stats.puntosTotales
+            };
         });
 
-        // Punto extra por menor diferencia (⭐)
-        let extraVaro = "", extraCia = "";
-        if (diffVaro !== null && diffCia !== null) {
-            if (diffVaro < diffCia) { 
+        // Punto extra por cercanía (Diferencia menor)
+        if (infoPlayers.Varo && infoPlayers.Cía) {
+            if (infoPlayers.Varo.diff < infoPlayers.Cía.diff) { 
                 desglose.Varo.diferencia++; 
-                extraVaro = " ⭐ (+1 Dif)"; 
+                infoPlayers.Varo.resumen += " ⭐ (+1 Dif)"; 
             }
-            else if (diffCia < diffVaro) { 
+            else if (infoPlayers.Cía.diff < infoPlayers.Varo.diff) { 
                 desglose.Cía.diferencia++; 
-                extraCia = " ⭐ (+1 Dif)"; 
+                infoPlayers.Cía.resumen += " ⭐ (+1 Dif)"; 
             }
         }
 
@@ -1089,23 +1105,23 @@ loadHistoryTab() {
                 <div style="font-weight: 900; color: var(--f1-red); text-transform: uppercase; margin-bottom: 10px; font-size: 1rem;">${carreraNombre}</div>
                 
                 <div style="background: rgba(0,0,0,0.3); padding: 8px; border-radius: 6px; margin-bottom: 12px; font-size: 0.9rem; border: 1px solid rgba(255,255,255,0.1);">
-                    <span style="color: #aaa;">🏁 PODIO REAL:</span> <strong style="color: #fff;">${realPodium.join(' - ')}</strong>
+                    <span style="color: #aaa;">🏁 PODIO REAL:</span> <strong style="color: #fff;">${result.P1} - ${result.P2} - ${result.P3}</strong>
                 </div>
 
                 <div style="display: grid; gap: 10px;">
                     <div style="padding-left: 10px; border-left: 3px solid #FFD700; background: rgba(255, 215, 0, 0.03); padding-top: 5px; padding-bottom: 5px;">
-                        <div style="font-size: 0.85rem; color: #FFD700; font-weight: bold; margin-bottom: 2px;">VARO APOSTÓ: <span style="color: #eee; font-weight: normal;">${votoVaro}</span></div>
-                        <div style="font-size: 0.75rem; color: #bbb;">${resumenVaro}${extraVaro}</div>
+                        <div style="font-size: 0.85rem; color: #FFD700; font-weight: bold; margin-bottom: 2px;">VARO APOSTÓ: <span style="color: #eee; font-weight: normal;">${infoPlayers.Varo ? infoPlayers.Varo.voto : '---'}</span></div>
+                        <div style="font-size: 0.75rem; color: #bbb;">${infoPlayers.Varo ? infoPlayers.Varo.resumen : 'Sin apuesta'}</div>
                     </div>
                     
                     <div style="padding-left: 10px; border-left: 3px solid #00D4FF; background: rgba(0, 212, 255, 0.03); padding-top: 5px; padding-bottom: 5px;">
-                        <div style="font-size: 0.85rem; color: #00D4FF; font-weight: bold; margin-bottom: 2px;">CÍA APOSTÓ: <span style="color: #eee; font-weight: normal;">${votoCia}</span></div>
-                        <div style="font-size: 0.75rem; color: #bbb;">${resumenCia}${extraCia}</div>
+                        <div style="font-size: 0.85rem; color: #00D4FF; font-weight: bold; margin-bottom: 2px;">CÍA APOSTÓ: <span style="color: #eee; font-weight: normal;">${infoPlayers.Cía ? infoPlayers.Cía.voto : '---'}</span></div>
+                        <div style="font-size: 0.75rem; color: #bbb;">${infoPlayers.Cía ? infoPlayers.Cía.resumen : 'Sin apuesta'}</div>
                     </div>
                 </div>
 
                 <div style="margin-top: 10px; padding-top: 8px; border-top: 1px solid rgba(255,255,255,0.1); font-size: 0.85rem; color: var(--f1-red); font-weight: bold; text-align: right; letter-spacing: 0.5px;">
-                    PUNTOS CARRERA: VARO ${puntosVaro} | CÍA ${puntosCia}
+                    PUNTOS CARRERA: VARO ${infoPlayers.Varo ? infoPlayers.Varo.puntos : 0} | CÍA ${infoPlayers.Cía ? infoPlayers.Cía.puntos : 0}
                 </div>
             </div>
         `;
@@ -1248,82 +1264,28 @@ loadHistoryTab() {
         `;
     }
 
-    calculateAllPoints() {
+   calculateAllPoints() {
     // 1. Reiniciar puntos de los jugadores
     this.firebaseData.points = { Varo: 0, Cía: 0 };
     
     // 2. CÁLCULO DE PUNTOS POR CARRERAS INDIVIDUALES
     this.firebaseData.results.forEach(result => {
         const carrera = result.Carrera;
-        const realPodium = [result.P1, result.P2, result.P3];
         
         // Buscar apuestas para esta carrera
         const betsForRace = this.firebaseData.bets.filter(bet => bet.Carrera === carrera);
-        
+        let diffs = {};
+
         betsForRace.forEach(bet => {
-            const betPodium = [bet.P1, bet.P2, bet.P3];
-            let points = 0;
-            let exactMatches = 0;
-            let podioIncorrectoMatches = 0; // Solo si acierta piloto pero en lugar equivocado
-            
-            // Contar aciertos exactos
-            for (let i = 0; i < 3; i++) {
-                if (betPodium[i] === realPodium[i]) {
-                    exactMatches++;
-                }
-            }
-            
-            // Contar pilotos en podio pero en posición INCORRECTA
-            betPodium.forEach((piloto, index) => {
-                // Si el piloto está en el podio real PERO no está en la misma posición que apostaste
-                if (realPodium.includes(piloto) && piloto !== realPodium[index]) {
-                    podioIncorrectoMatches++;
-                }
-            });
-            
-            // Asignar puntos por aciertos exactos (Regla: 1=5pts, 2=4pts, 3=3pts)
-            switch(exactMatches) {
-                case 1: points += 5; break;
-                case 2: points += 4; break;
-                case 3: points += 3; break;
-            }
-            
-            // Asignar puntos por cada piloto en podio en LUGAR INCORRECTO (2pts c/u)
-            points += (podioIncorrectoMatches * 2);
-            
-            // Sumar al total del jugador
-            this.firebaseData.points[bet.Jugador] += points;
+            const stats = this.calculateRacePerformance(bet, result);
+            this.firebaseData.points[bet.Jugador] += stats.puntosTotales;
+            diffs[bet.Jugador] = stats.positionDifference;
         });
-        
-        // --- PUNTO EXTRA POR CERCANÍA (Menor diferencia) ---
-        if (betsForRace.length > 1) {
-            let minDifference = Infinity;
-            let winner = null;
-            
-            betsForRace.forEach(bet => {
-                const betPodium = [bet.P1, bet.P2, bet.P3];
-                let positionDifference = 0;
-                
-                betPodium.forEach((piloto, index) => {
-                    const realIndex = realPodium.indexOf(piloto);
-                    if (realIndex !== -1) {
-                        positionDifference += Math.abs(index - realIndex);
-                    } else {
-                        positionDifference += 3; // Penalización si no está en podio
-                    }
-                });
-                
-                if (positionDifference < minDifference) {
-                    minDifference = positionDifference;
-                    winner = bet.Jugador;
-                } else if (positionDifference === minDifference) {
-                    winner = null; // Empate, nadie se lleva el punto extra
-                }
-            });
-            
-            if (winner) {
-                this.firebaseData.points[winner] += 1;
-            }
+
+        // Punto extra por cercanía (Diferencia menor)
+        if (diffs.Varo !== undefined && diffs.Cía !== undefined) {
+            if (diffs.Varo < diffs.Cía) this.firebaseData.points.Varo += 1;
+            else if (diffs.Cía < diffs.Varo) this.firebaseData.points.Cía += 1;
         }
     });
 
