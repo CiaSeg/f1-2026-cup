@@ -1059,133 +1059,124 @@ class F1CupApp {
 
     // ==================== CÁLCULO DE RENDIMIENTO Y PUNTOS ====================
 
-    calculateRacePerformance(bet, result) {
-        const realPodium = [result.P1, result.P2, result.P3];
-        const betPodium = [bet.P1, bet.P2, bet.P3];
-        
-        let exactMatches = 0;
-        let podioIncorrecto = 0;
-        let positionDifference = 0;
+  calculateRacePerformance(bet, result) {
+    const realPodium = [result.P1, result.P2, result.P3];
+    const betPodium = [bet.P1, bet.P2, bet.P3];
+    
+    let exactMatches = 0;
+    let podioIncorrecto = 0;
+    let positionDifference = 0;
+    let pExactos = 0;
 
-        // 1 & 2. Aciertos Exactos y Podio Incorrecto (Lógica Exclusiva)
-        for (let i = 0; i < 3; i++) {
-            if (betPodium[i] === realPodium[i]) {
-                exactMatches++;
-            } else if (realPodium.includes(betPodium[i])) {
-                podioIncorrecto++;
+    // 1. Puntos por posición exacta: P1=5, P2=4, P3=3
+    const puntosEscala = [5, 4, 3]; 
+
+    for (let i = 0; i < 3; i++) {
+        if (betPodium[i] === realPodium[i]) {
+            // Acierto en posición exacta
+            exactMatches++;
+            pExactos += puntosEscala[i];
+        } else if (realPodium.includes(betPodium[i])) {
+            // El piloto está en el podio pero en otra posición
+            podioIncorrecto++;
+        }
+    }
+
+    // 2. Cálculo de diferencia de posiciones para el punto de consolación
+    betPodium.forEach((piloto, index) => {
+        const posicionApostada = index + 1;
+        let posicionReal = 22; // Por defecto si no se encuentra en el top 22
+        
+        for (let p = 1; p <= 22; p++) {
+            if (result[`P${p}`] === piloto) {
+                posicionReal = p;
+                break;
             }
         }
+        positionDifference += Math.abs(posicionApostada - posicionReal);
+    });
 
-        // 3. Diferencia Real con TODOS los puestos (1-22)
-        betPodium.forEach((piloto, index) => {
-            const posicionApostada = index + 1; // 1, 2 o 3
-            let posicionReal = 22; // Por defecto 22 si no se encuentra
+    const pPodio = podioIncorrecto * 2;
+
+    return {
+        exactMatches,
+        podioIncorrecto,
+        positionDifference,
+        puntosExactos: pExactos,
+        puntosPodio: pPodio,
+        puntosTotales: pExactos + pPodio
+    };
+}
+calculateAllPoints() {
+    // 1. Reiniciar contadores
+    this.firebaseData.points = { Varo: 0, Cía: 0 };
+    
+    // 2. Procesar cada carrera con resultados oficiales
+    this.firebaseData.results.forEach(result => {
+        const carrera = result.Carrera;
+        const betsForRace = this.firebaseData.bets.filter(bet => bet.Carrera === carrera);
+        
+        let diffs = {}; // Para comparar cercanía al final de la carrera
+
+        betsForRace.forEach(bet => {
+            const stats = this.calculateRacePerformance(bet, result);
             
-            // Buscar en QUÉ PUESTO REAL terminó el piloto (P1 a P22)
-            for (let p = 1; p <= 22; p++) {
-                if (result[`P${p}`] === piloto) {
-                    posicionReal = p;
-                    break;
+            // Sumar puntos de aciertos (Exactos + Podio)
+            this.firebaseData.points[bet.Jugador] += stats.puntosTotales;
+            
+            // Guardar diferencia para el punto extra
+            diffs[bet.Jugador] = stats.positionDifference;
+        });
+
+        // 3. Otorgar Punto Extra por Cercanía (Solo si ambos han apostado)
+        if (diffs.Varo !== undefined && diffs.Cía !== undefined) {
+            if (diffs.Varo < diffs.Cía) {
+                this.firebaseData.points.Varo += 1;
+            } else if (diffs.Cía < diffs.Varo) {
+                this.firebaseData.points.Cía += 1;
+            }
+            // En caso de empate en diferencia, nadie se lleva el punto extra
+        }
+    });
+
+    // 4. Añadir puntos del Mundial (Season) si existen resultados finales
+    const final = this.firebaseData.finalResults;
+    if (final) {
+        this.firebaseData.seasonBets.forEach(bet => {
+            const player = bet.Jugador;
+            
+            // --- Puntos Mundial Pilotos ---
+            const realDrivers = [final.D1, final.D2, final.D3];
+            const betDrivers = [bet.D_P1, bet.D_P2, bet.D_P3];
+            const ptsPilotos = [15, 12, 9];
+
+            betDrivers.forEach((driver, i) => {
+                if (!driver) return;
+                if (driver === realDrivers[i]) {
+                    this.firebaseData.points[player] += ptsPilotos[i];
+                } else if (realDrivers.includes(driver)) {
+                    this.firebaseData.points[player] += 6;
                 }
-            }
-            
-            // Diferencia absoluta: |posición apostada - posición real|
-            const diferencia = Math.abs(posicionApostada - posicionReal);
-            positionDifference += diferencia;
-        });
-
-        // 4. Cálculo de Puntos
-        let pExactos = 0;
-        if (exactMatches === 1) pExactos = 5;
-        else if (exactMatches === 2) pExactos = 4;
-        else if (exactMatches === 3) pExactos = 3;
-
-        const pPodio = podioIncorrecto * 2;
-
-        return {
-            exactMatches,
-            podioIncorrecto,
-            positionDifference,
-            puntosExactos: pExactos,
-            puntosPodio: pPodio,
-            puntosTotales: pExactos + pPodio
-        };
-    }
-
-    calculateAllPoints() {
-        // 1. Reiniciar puntos de los jugadores
-        this.firebaseData.points = { Varo: 0, Cía: 0 };
-        
-        // 2. CÁLCULO DE PUNTOS POR CARRERAS INDIVIDUALES
-        this.firebaseData.results.forEach(result => {
-            const carrera = result.Carrera;
-            
-            // Buscar apuestas para esta carrera
-            const betsForRace = this.firebaseData.bets.filter(bet => bet.Carrera === carrera);
-            let diffs = {};
-
-            betsForRace.forEach(bet => {
-                const stats = this.calculateRacePerformance(bet, result);
-                this.firebaseData.points[bet.Jugador] += stats.puntosTotales;
-                diffs[bet.Jugador] = stats.positionDifference;
             });
 
-            // Punto extra por cercanía (Diferencia menor)
-            if (diffs.Varo !== undefined && diffs.Cía !== undefined) {
-                if (diffs.Varo < diffs.Cía) this.firebaseData.points.Varo += 1;
-                else if (diffs.Cía < diffs.Varo) this.firebaseData.points.Cía += 1;
-            }
-        });
+            // --- Puntos Mundial Constructores ---
+            const realTeams = [final.C1, final.C2, final.C3];
+            const betTeams = [bet.C_P1, bet.C_P2, bet.C_P3];
+            const ptsTeams = [10, 8, 6];
 
-        // 3. CÁLCULO DE PUNTOS POR MUNDIAL (SISTEMA EXCLUSIVO)
-        const final = this.firebaseData.finalResults;
-        if (final) {
-            this.firebaseData.seasonBets.forEach(bet => {
-                const player = bet.Jugador;
-                
-                // --- MUNDIAL PILOTOS ---
-                const realDrivers = [final.D1, final.D2, final.D3];
-                const betDrivers = [bet.D_P1, bet.D_P2, bet.D_P3];
-
-                betDrivers.forEach((driver, index) => {
-                    if (!driver) return;
-                    
-                    if (driver === realDrivers[index]) {
-                        // Si acierta posición exacta
-                        if (index === 0) this.firebaseData.points[player] += 15;
-                        else if (index === 1) this.firebaseData.points[player] += 12;
-                        else if (index === 2) this.firebaseData.points[player] += 9;
-                    } 
-                    else if (realDrivers.includes(driver)) {
-                        // Si está en el podio pero en lugar equivocado
-                        this.firebaseData.points[player] += 6;
-                    }
-                });
-
-                // --- MUNDIAL CONSTRUCTORES ---
-                const realTeams = [final.C1, final.C2, final.C3];
-                const betTeams = [bet.C_P1, bet.C_P2, bet.C_P3];
-
-                betTeams.forEach((team, index) => {
-                    if (!team) return;
-
-                    if (team === realTeams[index]) {
-                        // Si acierta posición exacta
-                        if (index === 0) this.firebaseData.points[player] += 10;
-                        else if (index === 1) this.firebaseData.points[player] += 8;
-                        else if (index === 2) this.firebaseData.points[player] += 6;
-                    } 
-                    else if (realTeams.includes(team)) {
-                        // Si está en el podio pero en lugar equivocado
-                        this.firebaseData.points[player] += 4;
-                    }
-                });
+            betTeams.forEach((team, i) => {
+                if (!team) return;
+                if (team === realTeams[i]) {
+                    this.firebaseData.points[player] += ptsTeams[i];
+                } else if (realTeams.includes(team)) {
+                    this.firebaseData.points[player] += 4;
+                }
             });
-        }
-        
-        console.log("📊 Puntos recalculados correctamente:", this.firebaseData.points);
+        });
     }
-
+    
+    console.log("📊 Clasificación actualizada:", this.firebaseData.points);
+}
     // ==================== PESTAÑA HISTORIAL ====================
 
     loadHistoryTab() {
@@ -1280,66 +1271,83 @@ class F1CupApp {
     }
 
     generateRaceDetailsHTML() {
-        let html = '';
-        const resultados = [...this.firebaseData.results].sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
+    let html = '';
+    // Ordenamos los resultados: el más reciente arriba
+    const resultados = [...this.firebaseData.results].sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
 
-        resultados.forEach(result => {
-            const carrera = result.Carrera;
-            const carreraNombre = carrera.split(' (')[0];
-            const betsForRace = this.firebaseData.bets.filter(bet => bet.Carrera === carrera);
+    resultados.forEach(result => {
+        const carrera = result.Carrera;
+        const carreraNombre = carrera.split(' (')[0];
+        const betsForRace = this.firebaseData.bets.filter(bet => bet.Carrera === carrera);
+        
+        let infoPlayers = { Varo: null, Cía: null };
+        let diffs = {};
+
+        betsForRace.forEach(bet => {
+            const stats = this.calculateRacePerformance(bet, result);
+            const player = bet.Jugador;
             
-            let infoPlayers = { Varo: null, Cía: null };
-            let diffs = {};
+            infoPlayers[player] = {
+                voto: [bet.P1, bet.P2, bet.P3].join(' - '),
+                // Usamos el texto exacto de tu imagen
+                resumen: `🎯 ${stats.exactMatches} exacto(s) (${stats.puntosExactos}pts) | 🥉 ${stats.podioIncorrecto} en podio (${stats.puntosPodio}pts) | 📏 Dif: ${stats.positionDifference}`,
+                puntosBase: stats.puntosTotales,
+                diff: stats.positionDifference
+            };
+            diffs[player] = stats.positionDifference;
+        });
 
-            betsForRace.forEach(bet => {
-                const stats = this.calculateRacePerformance(bet, result);
-                const player = bet.Jugador;
-                
-                infoPlayers[player] = {
-                    voto: [bet.P1, bet.P2, bet.P3].join(' - '),
-                    resumen: `🎯 ${stats.exactMatches} exactos (${stats.puntosExactos}pts) | 🥉 ${stats.podioIncorrecto} podio inc. (${stats.puntosPodio}pts) | 📏 Dif: ${stats.positionDifference}`,
-                    diff: stats.positionDifference,
-                    puntos: stats.puntosTotales
-                };
-                diffs[player] = stats.positionDifference;
-            });
+        // Determinar quién se lleva el punto extra para sumarlo al total final
+        let extraVaro = 0, extraCia = 0;
+        let estrellaVaro = "", estrellaCia = "";
 
-            // Añadir indicador de punto extra si corresponde
-            if (infoPlayers.Varo && infoPlayers.Cía) {
-                if (diffs.Varo < diffs.Cía) infoPlayers.Varo.resumen += " ⭐ (+1 Dif)";
-                else if (diffs.Cía < diffs.Varo) infoPlayers.Cía.resumen += " ⭐ (+1 Dif)";
+        if (infoPlayers.Varo && infoPlayers.Cía) {
+            if (diffs.Varo < diffs.Cía) {
+                extraVaro = 1;
+                estrellaVaro = " ⭐ (+1 Extra)";
+            } else if (diffs.Cía < diffs.Varo) {
+                extraCia = 1;
+                estrellaCia = " ⭐ (+1 Extra)";
             }
+        }
 
-            html += `
-                <div class="history-race-card" style="background: rgba(255,255,255,0.05); padding: 15px; border-radius: 12px; margin-bottom: 15px; border-left: 4px solid var(--f1-red);">
-                    <div style="font-weight: 900; color: var(--f1-red); text-transform: uppercase; margin-bottom: 10px; font-size: 1rem;">${carreraNombre}</div>
+        html += `
+            <div class="history-race-card" style="background: rgba(255,255,255,0.05); padding: 15px; border-radius: 12px; margin-bottom: 15px; border-left: 4px solid var(--f1-red);">
+                <div style="font-weight: 900; color: var(--f1-red); text-transform: uppercase; margin-bottom: 10px; font-size: 1rem;">${carreraNombre}</div>
+                
+                <div style="background: rgba(0,0,0,0.3); padding: 8px; border-radius: 6px; margin-bottom: 12px; font-size: 0.9rem; border: 1px solid rgba(255,255,255,0.1);">
+                    <span style="color: #aaa;">🏁 Podio Real:</span> <strong style="color: #fff;">${result.P1} - ${result.P2} - ${result.P3}</strong>
+                </div>
+
+                <div style="display: grid; gap: 10px;">
+                    <div style="padding-left: 10px; border-left: 3px solid #FFD700; background: rgba(255, 215, 0, 0.03); padding-top: 5px; padding-bottom: 5px;">
+                        <div style="font-size: 0.85rem; color: #FFD700; font-weight: bold; margin-bottom: 2px;">
+                            VARO APOSTÓ: <span style="color: #eee; font-weight: normal;">${infoPlayers.Varo ? infoPlayers.Varo.voto : '---'}</span>
+                        </div>
+                        <div style="font-size: 0.75rem; color: #bbb;">
+                            ${infoPlayers.Varo ? infoPlayers.Varo.resumen + estrellaVaro : 'Sin apuesta'}
+                        </div>
+                    </div>
                     
-                    <div style="background: rgba(0,0,0,0.3); padding: 8px; border-radius: 6px; margin-bottom: 12px; font-size: 0.9rem; border: 1px solid rgba(255,255,255,0.1);">
-                        <span style="color: #aaa;">🏁 PODIO REAL:</span> <strong style="color: #fff;">${result.P1} - ${result.P2} - ${result.P3}</strong>
-                    </div>
-
-                    <div style="display: grid; gap: 10px;">
-                        <div style="padding-left: 10px; border-left: 3px solid #FFD700; background: rgba(255, 215, 0, 0.03); padding-top: 5px; padding-bottom: 5px;">
-                            <div style="font-size: 0.85rem; color: #FFD700; font-weight: bold; margin-bottom: 2px;">VARO APOSTÓ: <span style="color: #eee; font-weight: normal;">${infoPlayers.Varo ? infoPlayers.Varo.voto : '---'}</span></div>
-                            <div style="font-size: 0.75rem; color: #bbb;">${infoPlayers.Varo ? infoPlayers.Varo.resumen : 'Sin apuesta'}</div>
+                    <div style="padding-left: 10px; border-left: 3px solid #00D4FF; background: rgba(0, 212, 255, 0.03); padding-top: 5px; padding-bottom: 5px;">
+                        <div style="font-size: 0.85rem; color: #00D4FF; font-weight: bold; margin-bottom: 2px;">
+                            CÍA APOSTÓ: <span style="color: #eee; font-weight: normal;">${infoPlayers.Cía ? infoPlayers.Cía.voto : '---'}</span>
                         </div>
-                        
-                        <div style="padding-left: 10px; border-left: 3px solid #00D4FF; background: rgba(0, 212, 255, 0.03); padding-top: 5px; padding-bottom: 5px;">
-                            <div style="font-size: 0.85rem; color: #00D4FF; font-weight: bold; margin-bottom: 2px;">CÍA APOSTÓ: <span style="color: #eee; font-weight: normal;">${infoPlayers.Cía ? infoPlayers.Cía.voto : '---'}</span></div>
-                            <div style="font-size: 0.75rem; color: #bbb;">${infoPlayers.Cía ? infoPlayers.Cía.resumen : 'Sin apuesta'}</div>
+                        <div style="font-size: 0.75rem; color: #bbb;">
+                            ${infoPlayers.Cía ? infoPlayers.Cía.resumen + estrellaCia : 'Sin apuesta'}
                         </div>
-                    </div>
-
-                    <div style="margin-top: 10px; padding-top: 8px; border-top: 1px solid rgba(255,255,255,0.1); font-size: 0.85rem; color: var(--f1-red); font-weight: bold; text-align: right; letter-spacing: 0.5px;">
-                        PUNTOS CARRERA: VARO ${infoPlayers.Varo ? infoPlayers.Varo.puntos : 0} | CÍA ${infoPlayers.Cía ? infoPlayers.Cía.puntos : 0}
                     </div>
                 </div>
-            `;
-        });
-        
-        return html;
-    }
 
+                <div style="margin-top: 10px; padding-top: 8px; border-top: 1px solid rgba(255,255,255,0.1); font-size: 0.85rem; color: var(--f1-red); font-weight: bold; text-align: right; letter-spacing: 0.5px;">
+                    Puntos de la carrera: VARO: ${infoPlayers.Varo ? (infoPlayers.Varo.puntosBase + extraVaro) : 0}pts | CÍA: ${infoPlayers.Cía ? (infoPlayers.Cía.puntosBase + extraCia) : 0}pts
+                </div>
+            </div>
+        `;
+    });
+    
+    return html;
+}
     renderPointsTable(desglose) {
         return `
             <table class="bets-table" style="width: 100%; border-collapse: collapse; margin: 15px 0; background: rgba(255,255,255,0.03); border-radius: 10px; overflow: hidden;">
