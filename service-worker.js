@@ -1,4 +1,4 @@
-const CACHE_NAME = 'f1-2026-cup-firebase-v1';
+const CACHE_NAME = 'f1-2026-cup-firebase-v2';
 const ASSETS_TO_CACHE = [
     './',
     './index.html',
