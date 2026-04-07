@@ -1,8 +1,8 @@
-# 🏎️ F1 2026 Cup
+# F1 2026 Cup
 
 Una Aplicación Web Progresiva (PWA) diseñada para gestionar una competición privada de pronósticos de Fórmula 1 durante la temporada 2026. La aplicación está configurada para un duelo directo entre dos jugadores ("Varo" y "Cía") y permite llevar el seguimiento de las predicciones carrera a carrera y del campeonato mundial.
 
-## 🌟 Características Principales
+## Características Principales
 
 * **Predicciones por Carrera:** Permite a los usuarios seleccionar su podio (1º, 2º y 3º) para cada uno de los 24 Grandes Premios de la temporada.
 * **Apuestas del Mundial:** Sección dedicada para predecir el Top 3 final del Mundial de Pilotos y el Top 3 del Mundial de Constructores.
@@ -12,7 +12,7 @@ Una Aplicación Web Progresiva (PWA) diseñada para gestionar una competición p
 * **PWA (Progressive Web App):** Instalable en dispositivos móviles para una experiencia nativa.
 * **Base de datos en la Nube:** Integración con Firebase Realtime Database para almacenar pronósticos y resultados al instante.
 
-## 📊 Sistema de Puntuación
+## Sistema de Puntuación
 
 La aplicación cuenta con un sistema de puntos automatizado y exhaustivo:
 
@@ -30,13 +30,13 @@ La aplicación cuenta con un sistema de puntos automatizado y exhaustivo:
 * **Mundial de Constructores:** * Acierto exacto: **10 pts** (1º), **8 pts** (2º), **6 pts** (3º).
   * Acierto en Top 3 (posición incorrecta): **4 pts**.
 
-## 🛠️ Tecnologías Utilizadas
+## Tecnologías Utilizadas
 
 * **Frontend:** HTML5, CSS3, JavaScript (Vanilla ES6).
 * **Backend / Base de Datos:** Firebase Realtime Database.
 * **Diseño / UI:** FontAwesome Icons, diseño Mobile-First.
 
-## 📂 Estructura del Proyecto
+## Estructura del Proyecto
 
 * `/assets/`: Contiene todas las imágenes de los pilotos (`/pilotos/`), escuderías (`/equipos/`) y mapas/banderas de los circuitos (`/circuitos/`).
 * `app.js`: Archivo principal que contiene toda la lógica de negocio (clase `F1CupApp`), cálculos matemáticos y conexión a Firebase.
